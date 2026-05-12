@@ -58,6 +58,31 @@ This takes approximately 2-3 minutes on first launch. *Subsequent launches are f
 ** A terminal at the bottom
 ** The OpenCode panel (if the CLI started automatically)
 
+== Step 1: Log In to OpenShift
+
+The Dev Space workspace pod runs as a service account with limited permissions.
+Log in with your personal credentials so the Ansible playbooks can create namespaces and deploy resources:
+
+[source,sh,role=execute]
+----
+oc login {rosa_openshift_api_url} \
+  -u {rosa_openshift_admin_user} \
+  -p {rosa_openshift_admin_password}
+----
+
+.Expected Output
+[source,text,options=nowrap]
+----
+Login successful.
+----
+
+[source,sh,role=execute]
+----
+oc whoami
+----
+
+This should return your username, not a service account. All `oc` commands and the Ansible playbooks will now use your credentials.
+
 == Verify OpenCode is Running
 
 . Open a terminal in the workspace (*Terminal → New Terminal* or press kbd:[Ctrl+`]).
