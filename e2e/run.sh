@@ -144,9 +144,6 @@ $POD_EXEC bash -c "
   chmod +x \$HOME/.local/bin/gitpop
   echo '→ Installing Ansible + OpenShift libraries...'
   pip install --quiet ansible kubernetes
-  ansible-galaxy collection install community.okd -q || true
-  echo '→ community.okd collection status:'
-  ansible-galaxy collection list 2>/dev/null | grep -E 'okd|kubernetes' || true
   echo '→ Verifying tools...'
   opencode --version
   gitpop --version || gitpop help | head -3
