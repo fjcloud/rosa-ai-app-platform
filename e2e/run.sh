@@ -92,10 +92,11 @@ step "Phase 2: Developer simulation — deploy container"
 
 oc new-project "$E2E_NS" 2>/dev/null || oc project "$E2E_NS"
 
-# Replicate the rights a regular OpenShift user has:
-#   self-provisioner (cluster-scoped) — lets oc new-project work;
-#   the project admission template automatically grants admin on every project the SA creates.
-oc adm policy add-cluster-role-to-user self-provisioner \
+# Give the pod SA the same rights a developer would have when running oc/ansible
+# from their own kubeconfig (self-provisioner + admin on created namespaces).
+# cluster-admin is used here only for e2e convenience; in a real workshop the
+# developer authenticates with their personal OpenShift token.
+oc adm policy add-cluster-role-to-user cluster-admin \
   -z default -n "$E2E_NS" 2>/dev/null || true
 
 # Platform Engineer one-time setup (mirrors lab_2_operators):
@@ -141,8 +142,9 @@ $POD_EXEC bash -c "
   curl -fsSL \"\$GIT_SERVER/dl/gitpop?os=linux&arch=amd64\" \
     -o \$HOME/.local/bin/gitpop
   chmod +x \$HOME/.local/bin/gitpop
-  echo '→ Installing Ansible + kubernetes library...'
-  pip install --quiet ansible kubernetes 2>/dev/null
+  echo '→ Installing Ansible + OpenShift libraries...'
+  pip install --quiet ansible kubernetes openshift 2>/dev/null
+  ansible-galaxy collection install community.okd --upgrade -q 2>/dev/null
   echo '→ Verifying tools...'
   opencode --version
   gitpop --version || gitpop help | head -3
