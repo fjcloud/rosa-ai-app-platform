@@ -141,8 +141,8 @@ $POD_EXEC bash -c "
   curl -fsSL \"\$GIT_SERVER/dl/gitpop?os=linux&arch=amd64\" \
     -o \$HOME/.local/bin/gitpop
   chmod +x \$HOME/.local/bin/gitpop
-  echo '→ Installing Ansible...'
-  pip install --quiet ansible 2>/dev/null
+  echo '→ Installing Ansible + kubernetes library...'
+  pip install --quiet ansible kubernetes 2>/dev/null
   echo '→ Verifying tools...'
   opencode --version
   gitpop --version || gitpop help | head -3
