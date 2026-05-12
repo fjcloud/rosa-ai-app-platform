@@ -143,8 +143,8 @@ $POD_EXEC bash -c "
     -o \$HOME/.local/bin/gitpop
   chmod +x \$HOME/.local/bin/gitpop
   echo '→ Installing Ansible + OpenShift libraries...'
-  pip install --quiet ansible kubernetes openshift 2>/dev/null
-  ansible-galaxy collection install community.okd --upgrade -q 2>/dev/null
+  pip install --quiet ansible kubernetes 2>/dev/null
+  ansible-galaxy collection install community.okd -q 2>/dev/null
   echo '→ Verifying tools...'
   opencode --version
   gitpop --version || gitpop help | head -3
