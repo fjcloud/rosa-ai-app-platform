@@ -62,17 +62,18 @@ This takes approximately 2-3 minutes on first launch. *Subsequent launches are f
 
 . Open a terminal in the workspace (*Terminal → New Terminal* or press kbd:[Ctrl+`]).
 
-. Check that OpenCode and Ansible were installed by the `postStart` hook:
+. Check that OpenCode, gitpop, and Ansible were installed by the `postStart` hook:
 +
 [source,sh,role=execute]
 ----
-opencode --version && ansible --version | head -1
+opencode --version && gitpop --version 2>/dev/null || true && ansible --version | head -1
 ----
 +
 .Sample Output
 [source,text,options=nowrap]
 ----
 opencode 0.x.x
+gitpop version x.x.x
 ansible [core 2.x.x]
 ----
 
@@ -112,11 +113,9 @@ This request works because your Dev Space pod runs *inside the cluster*. The URL
 opencode
 ----
 +
-The OpenCode TUI (Terminal UI) launches. You should see two agents listed:
-** *plan* — temperature 0.1, focused reasoning for architecture and planning
-** *build* — temperature 0.6, creative code generation
-
-Press `Tab` to switch between agents. Press `q` to exit OpenCode when needed.
+The OpenCode TUI (Terminal UI) launches. It reads `AGENTS.md` and connects to the Qwen3.6 LLM automatically.
+Two built-in session modes are available via `/plan` and `/build` slash commands.
+Press `q` to exit OpenCode when needed.
 
 == Understanding the OpenCode Configuration
 
@@ -129,7 +128,7 @@ The workspace comes pre-configured via `opencode.json`:
   "provider": {
     "qwen36": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Qwen3.6-35B-A3B-AWQ",
+      "name": "Qwen3.6",
       "options": {
         "baseURL": "http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1",
         "apiKey": "dummy",
@@ -138,23 +137,12 @@ The workspace comes pre-configured via `opencode.json`:
       },
       "models": {
         "qwen36": {
-          "name": "Qwen3.6-35B-A3B-AWQ-4bit",
-          "reasoning": true,
-          "tool_call": true,
-          "interleaved": { "field": "reasoning_content" },
-          "limit": {
-            "context": 262144,
-            "output": 32768
-          }
+          "name": "Qwen3.6-35B"
         }
       }
     }
   },
   "model": "qwen36/qwen36",
-  "agent": {
-    "plan": { "temperature": 0.1 },
-    "build": { "temperature": 0.6 }
-  },
   "autoupdate": false,
   "instructions": ["AGENTS.md"] <1>
 }
@@ -167,6 +155,7 @@ The workspace comes pre-configured via `opencode.json`:
 [source,sh,role=execute]
 ----
 opencode --version && \
+gitpop --version 2>/dev/null || true && \
 ansible --version | head -1 && \
 curl -s http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1/models | \
   python3 -c "import sys,json; m=json.load(sys.stdin); print('LLM ready:', m['data'][0]['id'])"
@@ -176,6 +165,7 @@ curl -s http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1/models |
 [source,text,options=nowrap]
 ----
 opencode 0.x.x
+gitpop version x.x.x
 ansible [core 2.x.x]
 LLM ready: qwen36
 ----

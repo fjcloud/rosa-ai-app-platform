@@ -33,11 +33,11 @@ With an AI-native platform:
 
 [source,sh,role=execute]
 ----
-cd ~/fortune-cookie
+cd ${PROJECT_SOURCE}
 opencode
 ----
 
-Switch to the *build* agent (press kbd:[Tab] until you see `build`). The build agent modifies files; the plan agent only describes.
+The build agent (`/build`) modifies files; the plan agent (`/plan`) only describes. Use `/build` for all audits in this lab.
 
 == Audit 1: Resource Governance
 

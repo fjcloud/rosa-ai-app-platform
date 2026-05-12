@@ -83,9 +83,11 @@ tasks:
   - name: Remove existing origin remote
   - name: Create repository on Git server
   - name: Configure git identity
-  - name: Stage and commit all files
+  - name: Stage all files
+  - name: Commit if there are staged changes
   - name: Push to Git server
-  - name: Show repository URL
+  - name: Get repository URL
+  - name: Print result
 ----
 
 [source,sh,role=execute]
@@ -97,11 +99,12 @@ cat scripts/build-image.yml
 ----
 tasks:
   - name: Get repository URL
-  - name: Create build namespace
+  - name: Create build project
   - name: Grant pipeline service account registry-editor role
-  - name: Apply Tekton Pipeline and workspace PVC (Kustomize)
+  - name: Apply Tekton Pipeline and workspace PVC
   - name: Trigger PipelineRun
-  - name: Wait for PipelineRun to succeed
+  - name: Wait for PipelineRun to succeed (up to 15 min)
+  - name: Assert PipelineRun succeeded
   - name: Print built image reference
 ----
 
@@ -114,16 +117,15 @@ cat scripts/gitops-deploy.yml
 ----
 tasks:
   - name: Get repository URL
-  - name: Create dev namespace
-  - name: Allow dev namespace to pull from build namespace
+  - name: Create dev project
+  - name: Allow dev namespace to pull images from build namespace
   - name: Update image reference in deployment manifest
   - name: Commit and push updated manifest
-  - name: Deploy developer-owned Argo CD instance (Kustomize)
-  - name: Wait for ArgoCD CR to become Available
-  - name: Wait for argocd-server deployment
+  - name: Deploy developer-owned Argo CD instance
+  - name: Wait for Argo CD instance to become Available
   - name: Create Argo CD Application
-  - name: Wait for application to sync and become healthy
-  - name: Show application and Argo CD URLs
+  - name: Wait for application to sync and become Healthy
+  - name: Show application URLs
 ----
 
 [NOTE]

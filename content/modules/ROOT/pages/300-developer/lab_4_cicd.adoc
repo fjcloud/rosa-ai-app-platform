@@ -36,7 +36,7 @@ Open OpenCode in your project directory:
 
 [source,sh,role=execute]
 ----
-cd ~/fortune-cookie
+cd ${PROJECT_SOURCE}
 opencode
 ----
 
