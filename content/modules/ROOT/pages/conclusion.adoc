@@ -1,4 +1,4 @@
-= Conclusion & What's Next
+= Module 4 — Conclusion & What's Next
 
 *Congratulations!* 🥠
 
@@ -12,11 +12,11 @@ You have completed the *AI-Powered Developer Platform on ROSA* workshop. In unde
 |===
 | Component | Technology
 
-| Scalable GPU infrastructure
-| ROSA managed machine pool, autoscaled (min 1 / max 3), NVIDIA L40S
+| GPU infrastructure
+| ROSA managed machine pool (fixed 1 node), NVIDIA L40S
 
 | LLM as a Service
-| OpenShift AI (RHOAI) + KServe + vLLM + Qwen3.6-35B-AWQ-4bit
+| OpenShift AI (RHOAI) + KServe + vLLM + Qwen3.6-35B-A3B-AWQ
 
 | AI-native governance
 | `AGENTS.md` — machine-readable platform conventions enforced by OpenCode
@@ -59,7 +59,7 @@ You have completed the *AI-Powered Developer Platform on ROSA* workshop. In unde
 == The Key Insights
 
 *1. ROSA makes GPU infrastructure a Platform Engineer concern, not a developer concern.*
-A single `rosa create machine-pool` command provisions autoscaled NVIDIA hardware on AWS. Developers never interact with EC2 or node selectors.
+A single `rosa create machine-pool` command provisions NVIDIA hardware on AWS. Developers never interact with EC2 or node selectors.
 
 *2. OpenShift AI makes LLM serving a catalog item, not a project.*
 `oc apply -k` deploying an `InferenceService` gives every team in the cluster an OpenAI-compatible API — the same interface they already know, running on infrastructure they control.
@@ -71,12 +71,13 @@ Platform conventions encoded in a Markdown file are read and enforced by the LLM
 OpenCode used Qwen3.6 to write the Fortune Cookie app. The Fortune Cookie app uses Qwen3.6 to serve fortunes. The platform team deploys one model; it delivers value in both directions.
 
 *5. Observability closes the loop.*
-GPU utilization, token throughput, and TTFT are visible in the same console as all other cluster metrics. LLM consumption is measurable, attributable, and scalable.
+GPU utilization, token throughput, and TTFT are visible in the same console as all other cluster metrics. LLM consumption is measurable and attributable.
 
 == What We Did Not Cover (But You Can Explore)
 
+* *LLM autoscaling with KEDA:* The workshop uses a fixed single replica for predictability. In production, proper LLM autoscaling should be driven by pending request queue depth using KEDA with vLLM Prometheus metrics — CPU/memory-based HPA is not meaningful for GPU inference workloads.
 * *Multi-environment GitOps:* Add `deploy/overlays/stage/` and `deploy/overlays/prod/` with Kustomize overlays; use separate Argo CD `Application` objects per environment
-* *Webhook-triggered pipelines:* Add an `EventListener` + `TriggerBinding` to Tekton so `git push` triggers builds automatically (no manual `oc new-build`)
+* *Webhook-triggered pipelines:* Add an `EventListener` + `TriggerBinding` to Tekton so `git push` triggers builds automatically
 * *Application autoscaling:* Add an HPA to the Fortune Cookie `Deployment` to scale based on HTTP requests
 * *Model fine-tuning:* OpenShift AI Data Science Projects support fine-tuning workflows on proprietary data using distributed training
 * *ROSA HCP (Hosted Control Planes):* Isolates the control plane from worker nodes for stronger multi-tenancy and faster cluster provisioning

@@ -1,4 +1,4 @@
-= Build and Deploy with OpenCode
+= Lab 2.2 — Build and Deploy with OpenCode
 
 You have a Dev Space, an LLM, and a template repository that encodes your platform's rules in `AGENTS.md`. You will use two focused OpenCode sessions to go from zero to a running application on OpenShift.
 

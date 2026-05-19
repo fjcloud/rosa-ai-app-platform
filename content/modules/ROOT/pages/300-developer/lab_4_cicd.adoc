@@ -1,4 +1,4 @@
-= Ship It: Change → Build → Deploy
+= Lab 2.3 — Ship It: Change → Build → Deploy
 
 Your Fortune Cookie app is live. Now close the GitOps loop: make a change, push it, and watch the pipeline rebuild the image and Argo CD reconcile the deployment — without running a single deployment command manually.
 

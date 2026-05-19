@@ -1,6 +1,6 @@
-= Install Platform Operators
+= Lab 1.2 — Install Platform Operators
 
-In this lab, you will install all six platform operators your workshop infrastructure needs using Kustomize overlays from the https://github.com/redhat-cop/gitops-catalog[Red Hat GitOps Catalog, window=_blank] and the https://github.com/fjcloud/opencode-devspace[opencode-devspace, window=_blank] repository.
+In this lab, you will install all six platform operators your workshop infrastructure needs using local Kustomize manifests bundled with the workshop repository.
 
 Declaring operator subscriptions as Kustomize manifests — rather than clicking through OperatorHub — is how a Platform Engineer manages operator lifecycle at scale: reproducible, auditable, and GitOps-friendly.
 
@@ -13,33 +13,27 @@ Declaring operator subscriptions as Kustomize manifests — rather than clicking
 
 == What Gets Installed
 
-[cols="1,2,1", options="header"]
+[cols="1,2", options="header"]
 |===
-| Operator | Purpose | Source
+| Operator | Purpose
 
 | *Red Hat OpenShift AI (RHOAI)*
 | Manages AI/ML workloads; provides KServe for LLM serving.
-| opencode-devspace
 
 | *NVIDIA GPU Operator*
 | Installs NVIDIA drivers, container toolkit, and device plugin on GPU nodes.
-| opencode-devspace
 
 | *Node Feature Discovery (NFD)*
 | Labels nodes with hardware features (`nvidia.com/gpu.present=true`). Required by GPU Operator.
-| opencode-devspace
 
 | *Red Hat OpenShift Dev Spaces*
 | Manages developer workspaces (cloud IDEs).
-| opencode-devspace
 
 | *OpenShift GitOps* (Argo CD)
 | Installs the operator so developers can create their own Argo CD instance per project.
-| gitops-catalog
 
 | *OpenShift Pipelines* (Tekton)
 | Container image build engine — each developer runs Tekton pipelines in their own namespace.
-| gitops-catalog
 |===
 
 [TIP]
@@ -47,11 +41,13 @@ Declaring operator subscriptions as Kustomize manifests — rather than clicking
 Developers deploy their own Argo CD instance inside their project namespace — they never touch `openshift-gitops`. Your only job here is to ensure the operators are available cluster-wide.
 ====
 
-== Step 1: Install AI & Dev Spaces Operators
+== Step 1: Install All Operators
+
+All operator manifests are bundled locally in the workshop repository. Apply them in a single command:
 
 [source,sh,role=execute]
 ----
-oc apply -k https://github.com/fjcloud/opencode-devspace/deploy/prereq/operator
+oc apply -k deploy/operators
 ----
 
 .Sample Output
@@ -60,36 +56,20 @@ oc apply -k https://github.com/fjcloud/opencode-devspace/deploy/prereq/operator
 namespace/openshift-nfd created
 namespace/nvidia-gpu-operator created
 namespace/redhat-ods-operator created
-operatorgroup.operators.coreos.com/nfd created
-operatorgroup.operators.coreos.com/gpu-operator-group created
+namespace/openshift-gitops-operator created
+operatorgroup.operators.coreos.com/openshift-nfd created
+operatorgroup.operators.coreos.com/nvidia-gpu-operator created
 operatorgroup.operators.coreos.com/rhods-operator created
+operatorgroup.operators.coreos.com/openshift-gitops-operator created
 subscription.operators.coreos.com/devspaces created
 subscription.operators.coreos.com/nfd created
 subscription.operators.coreos.com/gpu-operator-certified created
 subscription.operators.coreos.com/rhods-operator created
-----
-
-== Step 2: Install GitOps & Pipelines Operators
-
-Using the https://github.com/redhat-cop/gitops-catalog[Red Hat GitOps Catalog, window=_blank] — a community-maintained library of ready-to-use Kustomize overlays for OpenShift operators:
-
-[source,sh,role=execute]
-----
-# OpenShift GitOps (Argo CD) — latest stable channel
-oc apply -k https://github.com/redhat-cop/gitops-catalog/openshift-gitops-operator/operator/overlays/latest
-
-# OpenShift Pipelines (Tekton) — latest stable channel
-oc apply -k https://github.com/redhat-cop/gitops-catalog/openshift-pipelines-operator/overlays/latest
-----
-
-.Sample Output
-[source,text,options=nowrap]
-----
 subscription.operators.coreos.com/openshift-gitops-operator created
-subscription.operators.coreos.com/openshift-pipelines-operator created
+subscription.operators.coreos.com/openshift-pipelines-operator-rh created
 ----
 
-== Step 3: Start Background Health Checks
+== Step 2: Start Background Health Checks
 
 Kick off watches for all six operators in the background, then move on immediately:
 

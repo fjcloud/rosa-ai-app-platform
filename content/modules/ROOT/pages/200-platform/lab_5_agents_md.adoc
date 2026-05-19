@@ -1,4 +1,4 @@
-= Explore the Developer Template
+= Lab 1.5 — Explore the Developer Template
 
 The template repository is already initialized and published on GitHub at
 https://github.com/fjcloud/go-app-template[fjcloud/go-app-template].
@@ -166,7 +166,7 @@ The relevant field:
 
 [source,json]
 ----
-"baseURL": "http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1"
+"baseURL": "http://qwen3-predictor.llm-serving.svc.cluster.local:8080/v1"
 ----
 
 If your `InferenceService` or namespace name differs, update this value and push:
@@ -174,10 +174,10 @@ If your `InferenceService` or namespace name differs, update this value and push
 [source,sh,role=execute]
 ----
 # Get the actual service hostname
-oc get inferenceservice -n llm-inference
+oc get inferenceservice -n llm-serving
 
 # If it matches the default, no change needed. Otherwise:
-# sed -i 's|qwen36-predictor|<your-service-name>|g' opencode.json
+# sed -i 's|qwen3-predictor|<your-service-name>|g' opencode.json
 # git add opencode.json && git commit -m "fix: update LLM endpoint" && git push
 ----
 
@@ -270,7 +270,7 @@ As the Platform Engineer, you have deployed and configured the full developer pl
 |===
 | Component | Status
 
-| GPU Machine Pool (autoscaled)
+| GPU Machine Pool (fixed, 1 node)
 | ✅ Provisioned in ROSA
 
 | OpenShift AI + NVIDIA GPU Operator + NFD + Dev Spaces

@@ -1,4 +1,4 @@
-= Access Your ROSA Cluster
+= Module 0 — Access Your ROSA Cluster
 
 In this first lab you will log into your pre-provisioned Red Hat OpenShift Service on AWS (ROSA) cluster, verify your CLI tools are working, and review the overall workshop architecture before getting started.
 

@@ -7,8 +7,8 @@
 # =============================================================================
 set -euo pipefail
 
-LLM_NS="${LLM_NS:-llm-inference}"
-LLM_IS="${LLM_IS:-qwen36}"
+LLM_NS="${LLM_NS:-llm-serving}"
+LLM_IS="${LLM_IS:-qwen3}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'
 CYAN='\033[0;36m'; NC='\033[0m'
@@ -44,15 +44,15 @@ if oc get inferenceservice "$LLM_IS" -n "$LLM_NS" &>/dev/null; then
   ok "InferenceService $LLM_IS deleted"
 fi
 
-if oc get servingruntime vllm-cuda-qwen -n "$LLM_NS" &>/dev/null; then
-  oc delete servingruntime vllm-cuda-qwen -n "$LLM_NS" --ignore-not-found
-  ok "ServingRuntime vllm-cuda-qwen deleted"
+if oc get servingruntime vllm-runtime -n "$LLM_NS" &>/dev/null; then
+  oc delete servingruntime vllm-runtime -n "$LLM_NS" --ignore-not-found
+  ok "ServingRuntime vllm-runtime deleted"
 fi
 
 # Delete PVC separately first to avoid stuck namespace (PVC may have finalizers)
-if oc get pvc qwen36-model-cache -n "$LLM_NS" &>/dev/null; then
-  oc delete pvc qwen36-model-cache -n "$LLM_NS" --ignore-not-found
-  ok "PVC qwen36-model-cache deleted"
+if oc get pvc qwen-model-cache -n "$LLM_NS" &>/dev/null; then
+  oc delete pvc qwen-model-cache -n "$LLM_NS" --ignore-not-found
+  ok "PVC qwen-model-cache deleted"
 fi
 
 if oc get namespace "$LLM_NS" &>/dev/null; then
@@ -134,8 +134,12 @@ if oc get subscription openshift-pipelines-operator-rh -n openshift-operators &>
 fi
 
 # Operator namespaces (will also remove CSVs and operator pods)
+# NOTE: openshift-pipelines is NOT deleted here — its namespace is fully managed by the
+# Pipelines operator (TektonConfig controller). Deleting it manually breaks the CA bundle
+# configmap injection and leaves Tekton pods stuck in ContainerCreating on reinstall.
+# The subscription deletion above is sufficient to remove the operator.
 for ns in redhat-ods-operator openshift-nfd nvidia-gpu-operator \
-           openshift-gitops-operator openshift-pipelines openshift-gitops \
+           openshift-gitops-operator openshift-gitops \
            openshift-devspaces redhat-ods-applications; do
   if oc get namespace "$ns" &>/dev/null; then
     info "Deleting namespace $ns (this may take a moment)..."

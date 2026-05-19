@@ -24,8 +24,8 @@ By the end of this workshop, you will have deployed a complete AI developer plat
 image::architecture-overview.png[Architecture Overview, align="center"]
 
 === Platform Engineer Track
-* A scalable *GPU machine pool* on ROSA — autoscaled via OCM, no manual capacity planning
-* *OpenShift AI (RHOAI)* with KServe serving *Qwen3.6-35B* (a state-of-the-art reasoning model) via a fully *OpenAI-compatible REST API*
+* A fixed-size *GPU machine pool* on ROSA — one GPU node, no manual EC2 interaction
+* *OpenShift AI (RHOAI)* with KServe serving *Qwen3.6-35B* (a state-of-the-art MoE reasoning model) via a fully *OpenAI-compatible REST API*
 * *OpenShift Dev Spaces* — a browser-based cloud IDE pre-configured for every developer
 * *AGENTS.md* — a machine-readable rulebook that makes OpenCode enforce your platform conventions automatically
 * A *Go application template* — the "golden template" developers clone to start new projects
@@ -41,7 +41,7 @@ image::architecture-overview.png[Architecture Overview, align="center"]
 
 After completing this workshop, you will understand:
 
-* How ROSA's managed machine pools and autoscaling reduce GPU infrastructure toil
+* How ROSA's managed machine pools give you on-demand GPU capacity without EC2 complexity
 * How OpenShift AI (KServe + vLLM) provides a scalable, OpenAI-compatible LLM API on your own cluster
 * How `AGENTS.md` shifts platform governance from documentation to code
 * How OpenShift Dev Spaces + OpenCode creates an AI-augmented developer experience that requires no local setup
@@ -50,26 +50,59 @@ After completing this workshop, you will understand:
 
 == Workshop Structure
 
-[cols="1,3,1", options="header"]
+[cols="1,1,3,1", options="header"]
 |===
-| Module | Topic | Duration
+| Module | Lab | Topic | Duration
 
-| *100*
-| Access & ROSA Overview
+.5+| *0 — Setup*
+| —
+| Access your ROSA cluster, set up CLI credentials
 | 20 min
 
-| *200*
-| Platform Engineer: Deploy LLM as a Service & Developer Platform
-| 75 min
+.5+| *1 — Platform Engineer*
+| 1.1
+| Deploy a GPU Machine Pool
+| 15 min
 
-| *300*
-| Developer: Build & Ship with AI
-| 55 min
+| 1.2
+| Install Platform Operators
+| 5 min active / ~20 min background
 
-| *400*
-| LLM Observability & Governance
+| 1.3
+| Discover OpenShift AI
+| 15 min
+
+| 1.4
+| Deploy LLM as a Service (Qwen3.6)
+| 10 min active / ~15 min background
+
+| 1.5
+| Explore the Developer Template
+| 15 min
+
+.4+| *2 — Developer*
+| 2.1
+| Launch Your Dev Space
+| 10 min
+
+| 2.2
+| Build and Deploy with OpenCode
 | 20 min
 
+| 2.3
+| Ship It: Change → Build → Deploy
+| 15 min
+
+| 2.4
+| Validate Best Practices with OpenCode
+| 10 min
+
+| *3 — Observability*
+| —
+| LLM Metrics & GPU Dashboards (optional)
+| 20 min
+
+| *—*
 | —
 | Conclusion & Q&A
 | 10 min

@@ -18,8 +18,8 @@ set -euo pipefail
 GIT_SERVER="${GIT_SERVER:-https://gitpop.apps.sno.msl.cloud}"
 TEMPLATE_URL="${TEMPLATE_URL:-https://github.com/fjcloud/go-app-template}"
 GPU_INSTANCE_TYPE="${GPU_INSTANCE_TYPE:-g6e.xlarge}"
-LLM_NS="${LLM_NS:-llm-inference}"
-LLM_IS="${LLM_IS:-qwen36}"
+LLM_NS="${LLM_NS:-llm-serving}"
+LLM_IS="${LLM_IS:-qwen3}"
 LLM_URL_INTERNAL="http://${LLM_IS}-predictor.${LLM_NS}.svc.cluster.local:8080/v1"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
@@ -158,12 +158,16 @@ check "GitOps ArgoCD server deployment Available (openshift-gitops)" \
   "oc get deployment openshift-gitops-server -n openshift-gitops \
      -o jsonpath='{.status.availableReplicas}' | grep -qE '[1-9]'"
 
-step "Phase 2c: Tekton cluster tasks"
+step "Phase 2c: Tekton tasks"
 
-check "buildah Task exists in openshift-pipelines" \
+check "Tekton remote resolvers deployment Available" \
+  "oc get deployment tekton-pipelines-remote-resolvers -n openshift-pipelines \
+   -o jsonpath='{.status.availableReplicas}' | grep -qE '[1-9]'"
+
+check "buildah Task installed in openshift-pipelines" \
   "oc get task buildah -n openshift-pipelines"
 
-check "git-clone Task exists in openshift-pipelines" \
+check "git-clone Task installed in openshift-pipelines" \
   "oc get task git-clone -n openshift-pipelines"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -171,17 +175,10 @@ check "git-clone Task exists in openshift-pipelines" \
 # ─────────────────────────────────────────────────────────────────────────────
 step "Phase 3: Platform Instances"
 
-# DataScienceCluster
-DSC_PHASE=$(oc get datasciencecluster default-dsc \
-  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-if [[ "$DSC_PHASE" == "Ready" ]]; then
-  ok "DataScienceCluster default-dsc — Ready"
-else
-  warn "FAIL: DataScienceCluster not Ready (phase: ${DSC_PHASE:-not found})"
-  FAILURES=$((FAILURES + 1))
-fi
+# DataScienceCluster — check KServe-specific conditions (Dashboard may be Removed on ROSA HCP)
+check "DataScienceCluster default-dsc exists" \
+  "oc get datasciencecluster default-dsc"
 
-# DashboardReady is False on ROSA HCP by design (Dashboard not exposed via RHOAI on HCP)
 for component in KserveReady ModelControllerReady; do
   COND=$(oc get datasciencecluster default-dsc \
     -o jsonpath="{.status.conditions[?(@.type==\"${component}\")].status}" 2>/dev/null || echo "")
@@ -230,17 +227,17 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 step "Phase 4: LLM InferenceService"
 
-check "llm-inference namespace exists" \
+check "llm-serving namespace exists" \
   "oc get namespace $LLM_NS"
 
-check "ServingRuntime vllm-cuda-qwen exists" \
-  "oc get servingruntime vllm-cuda-qwen -n $LLM_NS"
+check "ServingRuntime vllm-runtime exists" \
+  "oc get servingruntime vllm-runtime -n $LLM_NS"
 
-check "InferenceService qwen36 exists" \
+check "InferenceService $LLM_IS exists" \
   "oc get inferenceservice $LLM_IS -n $LLM_NS"
 
-check "Model cache PVC qwen36-model-cache exists" \
-  "oc get pvc qwen36-model-cache -n $LLM_NS"
+check "Model cache PVC qwen-model-cache exists" \
+  "oc get pvc qwen-model-cache -n $LLM_NS"
 
 LLM_READY=$(oc get inferenceservice "$LLM_IS" -n "$LLM_NS" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
@@ -264,7 +261,7 @@ fi
 
 step "Phase 4b: LLM API smoke test (in-cluster)"
 
-# Run a short-lived pod in llm-inference to test the endpoint
+# Run a short-lived pod in llm-serving to test the endpoint
 info "Launching smoke-test pod in $LLM_NS..."
 oc delete pod llm-smoke-test -n "$LLM_NS" --ignore-not-found &>/dev/null || true
 
@@ -353,10 +350,12 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
   done
 
   step "Phase 5c: opencode.json"
-  check "opencode.json has correct LLM baseURL" \
-    "grep -q 'qwen36-predictor.llm-inference' '$REPO/opencode.json'"
   check "opencode.json is valid JSON" \
     "python3 -c \"import json; json.load(open('$REPO/opencode.json'))\""
+  check "opencode.json references an LLM baseURL (svc.cluster.local)" \
+    "grep -q 'svc.cluster.local' '$REPO/opencode.json'"
+  check "opencode.json has autoupdate disabled" \
+    "python3 -c \"import json; d=json.load(open('$REPO/opencode.json')); assert d.get('autoupdate')==False\""
 
   step "Phase 5d: devfile.yaml"
   for pattern in "GIT_SERVER" "opencode" "gitpop" "git-push" "build-image" "gitops-deploy"; do

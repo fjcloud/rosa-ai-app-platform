@@ -1,4 +1,4 @@
-= LLM Metrics & GPU Monitoring
+= Module 3 — LLM Metrics & GPU Monitoring
 
 Every developer on the platform has just used Qwen3.6 — through OpenCode during development and through the Fortune Cookie app at runtime. From the Platform Engineer's perspective, this LLM consumption is real infrastructure cost. In this module, you look at what happened: how much GPU was used, how the model performed under load, and how you would govern LLM usage at scale.
 
@@ -74,7 +74,7 @@ Look at the *GPU Utilization* graph over the last 30 minutes. You should see:
 
 [TIP]
 ====
-*This is the governance moment.* Ask the participants: if you had 50 developers using OpenCode all day, what would this graph look like? At what point would you need to scale to a second GPU node? The ROSA machine pool autoscaling would handle that automatically — but the Platform Engineer can *see* it happening here.
+*This is the governance moment.* Ask the participants: if you had 50 developers using OpenCode all day, what would this graph look like? At what point would you need a second GPU node? The Platform Engineer can *see* saturation happening here — and use that data to justify expanding the machine pool.
 ====
 
 == Part 2: OpenShift AI Model Metrics
@@ -91,7 +91,7 @@ OpenShift AI exposes KServe's built-in metrics via the cluster monitoring stack 
 
 [source,promql]
 ----
-rate(vllm:request_success_total{namespace="llm-inference"}[5m])
+rate(vllm:request_success_total{namespace="llm-serving"}[5m])
 ----
 
 Shows requests per second successfully served by vLLM. During the workshop, you should see a baseline from OpenCode usage plus spikes from Fortune Cookie app calls.
@@ -100,7 +100,7 @@ Shows requests per second successfully served by vLLM. During the workshop, you 
 
 [source,promql]
 ----
-rate(vllm:generation_tokens_total{namespace="llm-inference"}[5m])
+rate(vllm:generation_tokens_total{namespace="llm-serving"}[5m])
 ----
 
 Tokens generated per second. A 35B model on an L40S typically achieves 20-60 tokens/sec depending on batch size and prompt length.
@@ -110,7 +110,7 @@ Tokens generated per second. A 35B model on an L40S typically achieves 20-60 tok
 [source,promql]
 ----
 histogram_quantile(0.95, 
-  rate(vllm:time_to_first_token_seconds_bucket{namespace="llm-inference"}[5m])
+  rate(vllm:time_to_first_token_seconds_bucket{namespace="llm-serving"}[5m])
 )
 ----
 
@@ -120,19 +120,19 @@ The 95th percentile TTFT — how long users wait before seeing the first word of
 
 [source,promql]
 ----
-vllm:num_requests_running{namespace="llm-inference"}
+vllm:num_requests_running{namespace="llm-serving"}
 ----
 
-Number of requests being processed simultaneously. vLLM's continuous batching allows multiple requests to run in parallel on the same GPU. This is the metric used by KServe to trigger autoscaling (`scaleTarget: 1`).
+Number of requests being processed simultaneously. vLLM's continuous batching allows multiple requests to run in parallel on the same GPU. This is the key capacity metric — when it saturates, it is time to add a second GPU node.
 
 ==== Request Queue Length
 
 [source,promql]
 ----
-vllm:num_requests_waiting{namespace="llm-inference"}
+vllm:num_requests_waiting{namespace="llm-serving"}
 ----
 
-Requests waiting to be processed. If this is consistently > 0, the model is saturated and KServe will scale out (provisioning another GPU node from the ROSA autoscaled pool).
+Requests waiting to be processed. If this is consistently > 0, the model is saturated. In this workshop the pool is fixed at one node; in production you would use KEDA watching this metric to trigger a scale-out.
 
 == Part 3: The Governance Story
 
@@ -152,29 +152,32 @@ Cost per fortune:      ~40 × $0.00003 = $0.0012
 
 At scale: 100 developers each making 100 OpenCode requests/day × 500 tokens average = ~$15/day in GPU compute. This is *measurable*, *predictable*, and *attributable* to teams — something you cannot do with a shared SaaS API key.
 
-=== Autoscaling in Action
+=== Machine Pool Status
 
-Show the machine pool status to close the loop on the ROSA autoscaling story:
+Confirm the GPU node is still running and the inference service is healthy:
 
 [source,sh,role=execute]
 ----
 rosa list machinepools --cluster $CLUSTER_NAME
 ----
 
-.Sample Output (after workshop load)
+.Sample Output
 [source,text,options=nowrap]
 ----
-ID   AUTOSCALING  REPLICAS   INSTANCE TYPE  TAINTS
-gpu  Yes          1-3/1-3    g6e.xlarge     nvidia.com/gpu=present:NoSchedule
+ID   AUTOSCALING  REPLICAS  INSTANCE TYPE  TAINTS
+gpu  No           1         g6e.xlarge     nvidia.com/gpu=present:NoSchedule
 ----
-
-If KServe scaled beyond 1 predictor replica during peak load, ROSA would have provisioned additional GPU nodes automatically. Check:
 
 [source,sh,role=execute]
 ----
-oc get inferenceservice qwen36 -n llm-inference \
+oc get inferenceservice qwen3 -n llm-serving \
   -o jsonpath='{.status.components.predictor}'
 ----
+
+[NOTE]
+====
+This workshop uses a fixed single-node pool. In a production scenario you would use KEDA watching the `vllm:num_requests_waiting` metric to trigger additional GPU node provisioning automatically. See the conclusion for links.
+====
 
 === Namespace-Level Usage Visibility
 
@@ -183,8 +186,8 @@ The Platform Engineer can see resource consumption by namespace:
 [source,sh,role=execute]
 ----
 # GPU usage by namespace (who is consuming the GPU?)
-oc adm top pod -n llm-inference --use-protocol-buffers 2>/dev/null || \
-oc get pod -n llm-inference -o wide
+oc adm top pod -n llm-serving --use-protocol-buffers 2>/dev/null || \
+oc get pod -n llm-serving -o wide
 ----
 
 [source,sh,role=execute]
@@ -216,12 +219,12 @@ apiVersion: kuadrant.io/v1alpha1
 kind: TokenRateLimitPolicy
 metadata:
   name: llm-token-limits
-  namespace: llm-inference
+  namespace: llm-serving
 spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
-    name: qwen36-route
+    name: qwen3-route
   limits:
     free-tier:
       rates:
@@ -336,7 +339,7 @@ Reserved or Spot GPU instances on ROSA reduce these costs by 40-70%.
 oc get node -l node.kubernetes.io/instance-type=g6e.xlarge
 
 # InferenceService is still healthy
-oc get inferenceservice -n llm-inference
+oc get inferenceservice -n llm-serving
 
 # Fortune Cookie app is still serving
 curl -s https://$(oc get route fortune-cookie -n fortune-cookie-dev \
@@ -350,7 +353,7 @@ NAME                                      STATUS   ROLES    AGE
 ip-10-x-x-x.eu-west-1.compute.internal   Ready    worker   45m
 
 NAME     READY   PREV   LATEST   AGE
-qwen36   True    0      100      40m
+qwen3    True    0      100      40m
 
 Even the smallest deployment, monitored well, reveals the architecture of great systems.
 ----

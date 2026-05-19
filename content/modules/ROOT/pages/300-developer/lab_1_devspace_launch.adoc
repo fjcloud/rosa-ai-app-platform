@@ -1,4 +1,4 @@
-= Launch Your Dev Space
+= Lab 2.1 — Launch Your Dev Space
 
 Welcome to Module 300. You are now the *Developer*. Everything you need — a code editor, a terminal, the OpenCode AI assistant, and a direct connection to the in-cluster Qwen3.6 LLM — is available in your browser through *OpenShift Dev Spaces*. No local installation required.
 
@@ -15,7 +15,7 @@ OpenShift Dev Spaces provides *cloud-based developer workspaces* — VS Code-com
 
 * *Zero local setup:* the workspace comes pre-configured; just open a browser
 * *Consistent environment:* every developer gets the same tools, versions, and configuration
-* *In-cluster access:* your workspace runs inside the cluster, so it can reach internal services like `qwen36-predictor.llm-inference.svc.cluster.local` directly — no VPN, no port-forward needed
+* *In-cluster access:* your workspace runs inside the cluster, so it can reach internal services like `qwen3-predictor.llm-serving.svc.cluster.local` directly — no VPN, no port-forward needed
 * *Persistent storage:* your work is saved on a per-user PVC even if you close the browser
 
 == Get the Dev Spaces URL
@@ -58,31 +58,6 @@ This takes approximately 2-3 minutes on first launch. *Subsequent launches are f
 ** A terminal at the bottom
 ** The OpenCode panel (if the CLI started automatically)
 
-== Step 1: Log In to OpenShift
-
-The Dev Space workspace pod runs as a service account with limited permissions.
-Log in with your personal credentials so the Ansible playbooks can create namespaces and deploy resources:
-
-[source,sh,role=execute]
-----
-oc login {rosa_openshift_api_url} \
-  -u {rosa_openshift_admin_user} \
-  -p {rosa_openshift_admin_password}
-----
-
-.Expected Output
-[source,text,options=nowrap]
-----
-Login successful.
-----
-
-[source,sh,role=execute]
-----
-oc whoami
-----
-
-This should return your username, not a service account. All `oc` commands and the Ansible playbooks will now use your credentials.
-
 == Verify OpenCode is Running
 
 . Open a terminal in the workspace (*Terminal → New Terminal* or press kbd:[Ctrl+`]).
@@ -107,7 +82,7 @@ ansible [core 2.x.x]
 [source,sh,role=execute]
 ----
 curl -s \
-  http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1/models \
+  http://qwen3-predictor.llm-serving.svc.cluster.local:8080/v1/models \
   | python3 -m json.tool
 ----
 +
@@ -118,7 +93,7 @@ curl -s \
   "object": "list",
   "data": [
     {
-      "id": "qwen36",
+      "id": "qwen3",
       "object": "model",
       "owned_by": "vllm"
     }
@@ -128,7 +103,7 @@ curl -s \
 +
 [TIP]
 ====
-This request works because your Dev Space pod runs *inside the cluster*. The URL `qwen36-predictor.llm-inference.svc.cluster.local` is only reachable from within the cluster — your workspace has direct network access to the LLM, with no latency penalty from going over the internet.
+This request works because your Dev Space pod runs *inside the cluster*. The URL `qwen3-predictor.llm-serving.svc.cluster.local` is only reachable from within the cluster — your workspace has direct network access to the LLM, with no latency penalty from going over the internet.
 ====
 
 . Start OpenCode:
@@ -151,23 +126,23 @@ The workspace comes pre-configured via `opencode.json`:
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "qwen36": {
+    "qwen3": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Qwen3.6",
       "options": {
-        "baseURL": "http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1",
+        "baseURL": "http://qwen3-predictor.llm-serving.svc.cluster.local:8080/v1",
         "apiKey": "dummy",
         "chunkTimeout": 120000,
         "timeout": 600000
       },
       "models": {
-        "qwen36": {
+        "qwen3": {
           "name": "Qwen3.6-35B"
         }
       }
     }
   },
-  "model": "qwen36/qwen36",
+  "model": "qwen3/qwen3",
   "autoupdate": false,
   "instructions": ["AGENTS.md"] <1>
 }
@@ -182,7 +157,7 @@ The workspace comes pre-configured via `opencode.json`:
 opencode --version && \
 gitpop --version 2>/dev/null || true && \
 ansible --version | head -1 && \
-curl -s http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1/models | \
+curl -s http://qwen3-predictor.llm-serving.svc.cluster.local:8080/v1/models | \
   python3 -c "import sys,json; m=json.load(sys.stdin); print('LLM ready:', m['data'][0]['id'])"
 ----
 
@@ -192,7 +167,7 @@ curl -s http://qwen36-predictor.llm-inference.svc.cluster.local:8080/v1/models |
 opencode 0.x.x
 gitpop version x.x.x
 ansible [core 2.x.x]
-LLM ready: qwen36
+LLM ready: qwen3
 ----
 
 Your Dev Space is running, tools are installed, and the LLM is reachable. ✓

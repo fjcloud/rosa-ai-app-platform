@@ -1,4 +1,4 @@
-= Validate Best Practices with OpenCode
+= Lab 2.4 — Validate Best Practices with OpenCode
 
 Your application is live. But did OpenCode actually follow all the platform rules from `AGENTS.md`? Use the same LLM that wrote the code to *audit* it — and automatically fix any gaps.
 
