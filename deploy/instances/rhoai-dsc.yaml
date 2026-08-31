@@ -1,23 +1,26 @@
-apiVersion: datasciencecluster.opendatahub.io/v1
+# RHOAI 3.5: kserve.modelsAsService is deprecated. Once it is Removed it cannot be
+# re-enabled — enable Models-as-a-Service through aigateway.modelsAsAService.
+# Dashboard + OGX expose the MaaS / Gen AI studio UI (API keys, subscriptions).
+apiVersion: datasciencecluster.opendatahub.io/v2
 kind: DataScienceCluster
 metadata:
   name: default-dsc
 spec:
   components:
-    codeflare:
-      managementState: Removed
+    aigateway:
+      managementState: Managed
+      modelsAsAService:
+        managementState: Managed
     dashboard:
-      managementState: Removed
-    datasciencepipelines:
-      managementState: Removed
+      managementState: Managed
     kserve:
       managementState: Managed
-      serving:
-        managementState: Removed
     kueue:
       managementState: Removed
-    modelmeshserving:
+    llamastackoperator:
       managementState: Removed
+    ogx:
+      managementState: Managed
     ray:
       managementState: Removed
     trainingoperator:

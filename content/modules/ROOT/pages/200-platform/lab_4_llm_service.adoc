@@ -1,38 +1,40 @@
-= Lab 1.4 — Deploy LLM as a Service
+= Lab 1.4 — Deploy Qwen3.8 as Models-as-a-Service
 
-With all four operators running, you can now create the *instances* (the actual running services) and deploy *Qwen3.6 as an OpenAI-compatible InferenceService*. Two commands: one for the platform instances, one for the model. Then move on — the model will download while you work on the next lab.
+With the operators running, create the *platform instances* (including the Models-as-a-Service control plane) and publish *Qwen3.8* through the MaaS gateway. Developers then consume one HTTPS endpoint with a subscription-bound API key — not a raw predictor Service.
 
 [NOTE]
 ====
-*Estimated time:* 10 minutes active + ~15 minutes background download +
+*Estimated time:* 15 minutes active + ~10 minutes for the cached model to load +
 *Persona:* Platform Engineer +
-*Fire and forget:* Trigger both applies, then move to Lab 5. The model will be ready before the Developer module begins.
+*Fire and forget:* Trigger the applies, then move to Lab 1.5. The model is ready before the Developer module begins.
 ====
 
 == Model Serving Architecture
 
 image::model-serving-architecture.png[Model Serving Architecture, align="center"]
 
-The Qwen3.6 `InferenceService` uses KServe to orchestrate vLLM on a dedicated GPU node, exposing an OpenAI-compatible API to every developer on the cluster.
+OpenShift AI 3.5 serves the model as an `LLMInferenceService`. Models-as-a-Service sits in front: one Gateway, API keys, and a token quota. Clients call `https://maas.<apps-domain>/...` with a `sk-oai-` key. OpenShift 4.22 already has Gateway API — do not install Service Mesh 3.
 
 == Step 1: Create Platform Instances
 
-This step instantiates the operator CRDs: the `DataScienceCluster` for RHOAI, the `CheCluster` for Dev Spaces, the `ClusterPolicy` and `NodeFeatureDiscovery` for GPU management, and the DCGM (GPU monitoring) dashboard.
+This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (Authorino TLS + dashboard GPU taints and MaaS UI flags).
 
 [source,sh,role=execute]
 ----
 oc apply -k deploy/instances
+bash deploy/instances/configure-platform.sh
 ----
 
 .Sample Output
 [source,text,options=nowrap]
 ----
 datasciencecluster.datasciencecluster.opendatahub.io/default-dsc created
-dscinitializatiton.dscinitialization.opendatahub.io/default-dsci created
 checluster.org.eclipse.che/devspaces created
-nodefeaturediscovery.nfd.openshift.io/nfd-instance created
-clusterpolicy.nvidia.com/gpu-cluster-policy created
-configmap/nvidia-dcgm-exporter-dashboard created
+gateway.gateway.networking.k8s.io/maas-default-gateway created
+kuadrant.kuadrant.io/kuadrant created
+Authorino TLS configured.
+Dashboard GPU-node tolerations and MaaS UI flags applied.
+Platform instances configured (Authorino TLS + dashboard).
 ----
 
 === What Is Created
@@ -42,25 +44,22 @@ configmap/nvidia-dcgm-exporter-dashboard created
 | Object | Purpose
 
 | `DataScienceCluster`
-| Enables KServe model serving (with `RawDeployment` mode — no serverless infrastructure needed)
+| Turns on KServe, MaaS, the dashboard, and OGX (Gen AI studio).
 
-| `DSCInitialization`
-| Configures shared components: monitoring namespace, certificates, dashboard
+| `Gateway` (`maas-default-gateway`)
+| One HTTPS front door: `https://maas.<apps-domain>/`
 
-| `CheCluster`
-| Configures Dev Spaces: user workspace namespaces, PVC per-user, inactivity timeout 1800s
+| `Kuadrant` + workshop Postgres
+| API-key auth (Authorino) and token quota (Limitador). Postgres is POC-only.
 
-| `NodeFeatureDiscovery`
-| Starts the NFD daemon — it will label the GPU node with hardware attributes once it joins
+| `CheCluster` + OpenCode ConfigMaps
+| Dev Spaces workspaces pointed at MaaS. The key is minted in Step 3.
 
-| `ClusterPolicy`
-| Triggers NVIDIA GPU Operator to install drivers, CUDA toolkit, and device plugin on GPU nodes
-
-| `ConfigMap` (DCGM dashboard)
-| Loads the NVIDIA DCGM Exporter dashboard into the OpenShift monitoring console
+| `NodeFeatureDiscovery` / `ClusterPolicy`
+| GPU labels, drivers, device plugin.
 |===
 
-=== Wait for Core Instances
+=== Wait for MaaS
 
 [source,sh,role=execute]
 ----
@@ -69,9 +68,17 @@ oc wait checluster/devspaces \
   --for=jsonpath='{.status.chePhase}'=Active \
   --timeout=300s
 
-# KServe ready (Dashboard is not exposed on ROSA HCP — this is expected)
 oc wait datasciencecluster/default-dsc \
-  --for=jsonpath='{.status.conditions[?(@.type=="KserveReady")].status}'=True \
+  --for=jsonpath='{.status.conditions[?(@.type=="ModelsAsAServiceReady")].status}'=True \
+  --timeout=300s
+
+oc wait datasciencecluster/default-dsc \
+  --for=jsonpath='{.status.conditions[?(@.type=="DashboardReady")].status}'=True \
+  --timeout=300s
+
+oc wait maastenantconfig/default-tenant \
+  -n models-as-a-service \
+  --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
   --timeout=300s
 ----
 
@@ -80,15 +87,19 @@ oc wait datasciencecluster/default-dsc \
 ----
 checluster.org.eclipse.che/devspaces condition met
 datasciencecluster.datasciencecluster.opendatahub.io/default-dsc condition met
+datasciencecluster.datasciencecluster.opendatahub.io/default-dsc condition met
+maastenantconfig.maas.opendatahub.io/default-tenant condition met
 ----
 
-== Step 2: Deploy the LLM InferenceService
+The dashboard URL is `https://rh-ai.apps.<apps-domain>/` (also **Red Hat OpenShift AI** in the OpenShift Application launcher). Log in with cluster-admin. Catalog, subscriptions, and extra API keys live under Gen AI / Models-as-a-Service. Dev Spaces still needs the key in Secret `ai-provider-openai-api-key` — that is Step 3, not the dashboard.
+
+== Step 2: Publish Qwen3.8 to MaaS
 
 This creates:
-* The `llm-serving` namespace
-* A 50 Gi PVC for the model weight cache
-* The `ServingRuntime` (vLLM container configuration)
-* The `InferenceService` itself — this triggers the first model download
+
+* The `llm-serving` namespace and 50 Gi model-cache PVC
+* `LLMInferenceService/qwen3` — Red Hat vLLM CUDA 3.5.0 on the GPU node, attached to `maas-default-gateway`
+* `MaaSModelRef` (catalog entry), `MaaSAuthPolicy` (who can call it), `MaaSSubscription` (token quota)
 
 [source,sh,role=execute]
 ----
@@ -100,91 +111,99 @@ oc apply -k deploy/inference
 ----
 namespace/llm-serving created
 persistentvolumeclaim/qwen-model-cache created
-servingruntime.serving.kserve.io/vllm-runtime created
-inferenceservice.serving.kserve.io/qwen3 created
+llminferenceservice.serving.kserve.io/qwen3 created
+maasmodelref.maas.opendatahub.io/qwen3 created
+maasauthpolicy.maas.opendatahub.io/qwen3-access created
+maassubscription.maas.opendatahub.io/qwen3-workshop created
 ----
 
-=== Understanding the InferenceService Configuration
-
-The `InferenceService` is configured with a fixed single replica — sufficient for the workshop and keeps GPU costs predictable:
+=== Understanding the LLMInferenceService
 
 [source,yaml]
 ----
 spec:
-  predictor:
-    minReplicas: 1      # <1>
-    maxReplicas: 1      # <2>
-    model:
-      storageUri: "hf://cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
-      runtime: vllm-runtime
-    resources:
-      limits:
-        nvidia.com/gpu: "1"
-    tolerations:
-    - key: nvidia.com/gpu  # <3>
-      operator: Exists
-      effect: NoSchedule
+  replicas: 1
+  model:
+    uri: hf://RedHatAI/Qwen3.8-27B-INT4
+    name: qwen3                          # <1>
+  storageInitializer:
+    enabled: false                       # <2>
+  router:
+    gateway:
+      refs:
+        - name: maas-default-gateway     # <3>
+          namespace: openshift-ingress
+  template:
+    containers:
+      - name: main
+        image: registry.redhat.io/rhaii/vllm-cuda-rhel9:3.5.0
+        args:
+          - --served-model-name=qwen3
+          - --max-model-len=40960
+          - --ssl-certfile=/var/run/kserve/tls/tls.crt   # <4>
 ----
 
-<1> Always keep one replica running — no cold start during the workshop
-<2> Fixed at one replica — one GPU, one inference pod
-<3> Tolerate the GPU taint — only inference pods land on GPU nodes
+<1> API model id stays `qwen3`; the display name is Qwen3.8
+<2> Weights already live on PVC `qwen-model-cache` (`HF_HOME=/opt/models`). Skip the storage-initializer re-download.
+<3> Required for MaaS: the HTTPRoute attaches to `maas-default-gateway`
+<4> OpenShift AI 3.5 enables backend TLS by default; vLLM must present the KServe service-CA cert
 
-=== The vLLM Serving Arguments
+The image is **Red Hat AI Inference** CUDA (`rhaii/vllm-cuda-rhel9:3.5.0`) — not community `vllm/vllm-openai`.
 
-The `ServingRuntime` passes key arguments to vLLM:
+=== Wait for the model
 
-[source,yaml]
-----
-args:
-  - --model=/mnt/models        # model weights from PVC / HuggingFace Hub
-  - --served-model-name={{.Name}}  # exposed as "qwen3" via the API
-  - --dtype=half               # FP16 for A-series GPU compatibility
-  - --max-model-len=40960      # token context window
-  - --gpu-memory-utilization=0.95  # use 95% of GPU VRAM
-----
-
-=== First Start: Model Download
-
-The first time the predictor pod starts, it downloads model weights from HuggingFace Hub to the PVC. This takes approximately 10-15 minutes.
+The first cluster cold-start downloads ~18 GiB from Hugging Face. This workshop PVC is already populated, so vLLM mainly loads weights into GPU memory (~5–8 minutes).
 
 [source,sh,role=execute]
 ----
-# Watch the download progress (run in background, move on)
-oc logs -f -n llm-serving \
-  $(oc get pod -n llm-serving -l serving.kserve.io/inferenceservice=qwen3 \
-    -o name 2>/dev/null | head -1) 2>/dev/null &
-echo "Model download logs streaming in background. Move on to Lab 5."
+oc wait llminferenceservice/qwen3 -n llm-serving \
+  --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
+  --timeout=600s
+
+oc get maasmodelref,maasauthpolicy,maassubscription -A
 ----
 
-[NOTE]
-====
-*Subsequent starts are instant.* The weights are cached on the PVC (`qwen-model-cache`). Only the very first start downloads them.
-====
-
-== Verify the Endpoint Will Be Available
-
-[source,sh,role=execute]
-----
-oc get inferenceservice -n llm-serving
-----
-
-.Sample Output (while downloading)
+.Expected
 [source,text,options=nowrap]
 ----
-NAME    URL                                                  READY   PREV   LATEST   AGE
-qwen3   http://qwen3-predictor.llm-serving.svc.cluster.local   False   0      100      2m
+llminferenceservice.serving.kserve.io/qwen3 condition met
+NAME     PHASE   ENDPOINT
+qwen3    Ready   https://maas.apps.<cluster>/
 ----
 
-The `READY` column shows `False` while the model loads. It will become `True` when the predictor is serving requests. You will verify this at the end of Lab 5.
+== Step 3: Mint the workshop API key
+
+Inference uses **one** `sk-oai-` Bearer token (not an access key + secret). The script mints a key bound to `qwen3-workshop` (5 000 000 tokens / 24h) and stores it as `OPENAI_API_KEY` for every Dev Spaces workspace.
+
+[source,sh,role=execute]
+----
+bash deploy/inference/mint-workshop-key.sh
+----
+
+Smoke-test the same URL OpenCode will call:
+
+[source,sh,role=execute]
+----
+HOST="maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')"
+KEY="$(oc get secret ai-provider-openai-api-key -n openshift-operators \
+  -o jsonpath='{.data.OPENAI_API_KEY}' | base64 -d)"
+
+curl -sS "https://${HOST}/llm-serving/qwen3/v1/chat/completions" \
+  -H "Authorization: Bearer ${KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen3","messages":[{"role":"user","content":"Say MAAS_OK"}],"max_tokens":16,"chat_template_kwargs":{"enable_thinking":false}}'
+----
+
+You should see `"content"` containing `MAAS_OK`. Extra keys for curl or apps can also be created in the dashboard; they do not replace this Secret.
 
 == Summary
 
-You have now triggered the deployment of:
+You have now deployed:
 
-* ✅ `DataScienceCluster` — RHOAI model serving enabled
-* ✅ `CheCluster` — Dev Spaces ready for developer workspaces
-* ✅ `InferenceService/qwen3` — Qwen3 downloading, will be OpenAI-compatible when ready
-* ✅ NVIDIA GPU monitoring dashboard — auto-loaded into OpenShift console
+* ✅ Dashboard — `https://rh-ai.apps.<apps-domain>/`
+* ✅ Gateway — `https://maas.<apps-domain>/`
+* ✅ `LLMInferenceService/qwen3` — Qwen3.8 on Red Hat vLLM
+* ✅ Catalog, access, quota (`MaaSModelRef` / `MaaSAuthPolicy` / `MaaSSubscription`)
+* ✅ One `sk-oai-` key in Secret `ai-provider-openai-api-key`
 
-➡️ Move immediately to *Lab 5: Define Developer Conventions*. Check the InferenceService status at the end of that lab.
+➡️ Move to *Lab 1.5: Explore the Developer Template*. Developers call MaaS; they never talk to the predictor Service.

@@ -1,6 +1,6 @@
 = Lab 1.2 — Install Platform Operators
 
-In this lab, you will install all six platform operators your workshop infrastructure needs using local Kustomize manifests bundled with the workshop repository.
+In this lab, you will install the platform operators your workshop infrastructure needs using local Kustomize manifests bundled with the workshop repository.
 
 Declaring operator subscriptions as Kustomize manifests — rather than clicking through OperatorHub — is how a Platform Engineer manages operator lifecycle at scale: reproducible, auditable, and GitOps-friendly.
 
@@ -8,32 +8,22 @@ Declaring operator subscriptions as Kustomize manifests — rather than clicking
 ====
 *Estimated time:* 5 minutes active + ~20 minutes background installation +
 *Persona:* Platform Engineer +
-*Fire and forget:* Trigger all installs, then move immediately to Lab 3 while they complete.
+*Fire and forget:* Trigger all installs, then move immediately to Lab 1.3 while they complete.
 ====
 
 == What Gets Installed
 
+Two groups, one `oc apply`. You do not configure any of these by hand — Lab 1.4 turns them on.
+
 [cols="1,2", options="header"]
 |===
-| Operator | Purpose
+| Group | Operators
 
-| *Red Hat OpenShift AI (RHOAI)*
-| Manages AI/ML workloads; provides KServe for LLM serving.
+| *Serve the model*
+| OpenShift AI (KServe + MaaS + dashboard), NVIDIA GPU Operator, Node Feature Discovery, Leader Worker Set, cert-manager, Red Hat Connectivity Link (API keys and token quotas)
 
-| *NVIDIA GPU Operator*
-| Installs NVIDIA drivers, container toolkit, and device plugin on GPU nodes.
-
-| *Node Feature Discovery (NFD)*
-| Labels nodes with hardware features (`nvidia.com/gpu.present=true`). Required by GPU Operator.
-
-| *Red Hat OpenShift Dev Spaces*
-| Manages developer workspaces (cloud IDEs).
-
-| *OpenShift GitOps* (Argo CD)
-| Installs the operator so developers can create their own Argo CD instance per project.
-
-| *OpenShift Pipelines* (Tekton)
-| Container image build engine — each developer runs Tekton pipelines in their own namespace.
+| *Ship the app*
+| Dev Spaces (cloud IDE), OpenShift GitOps (Argo CD), OpenShift Pipelines (Tekton)
 |===
 
 [TIP]
@@ -67,11 +57,16 @@ subscription.operators.coreos.com/gpu-operator-certified created
 subscription.operators.coreos.com/rhods-operator created
 subscription.operators.coreos.com/openshift-gitops-operator created
 subscription.operators.coreos.com/openshift-pipelines-operator-rh created
+subscription.operators.coreos.com/cert-manager created
+subscription.operators.coreos.com/leader-worker-set created
+subscription.operators.coreos.com/rhcl-operator created
 ----
+
+The first apply may report that `Task` CRDs are not found yet. That is expected — OpenShift Pipelines has not finished installing. Re-run the same command after the operators are `Succeeded` (Lab 1.3 checkpoint); the bundled `git-clone` and `buildah` tasks will then apply.
 
 == Step 2: Start Background Health Checks
 
-Kick off watches for all six operators in the background, then move on immediately:
+Kick off watches for the operators in the background, then move on immediately:
 
 [source,sh,role=execute]
 ----
@@ -81,7 +76,10 @@ for check in \
   "nvidia-gpu-operator:gpu-operator:GPU Operator" \
   "redhat-ods-operator:rhods-operator:OpenShift AI" \
   "openshift-gitops:openshift-gitops-server:GitOps (Argo CD)" \
-  "openshift-pipelines:tekton-pipelines-controller:Pipelines (Tekton)"; do
+  "openshift-pipelines:tekton-pipelines-controller:Pipelines (Tekton)" \
+  "cert-manager:cert-manager:cert-manager" \
+  "openshift-lws-operator:openshift-lws-operator:LeaderWorkerSet" \
+  "kuadrant-system:kuadrant-operator-controller-manager:Connectivity Link"; do
   IFS=: read ns dep label <<< "$check"
   (
     oc wait deployment/${dep} -n ${ns} \
@@ -90,7 +88,7 @@ for check in \
   ) &
 done
 
-echo "All operator checks running in background — move on to Lab 3."
+echo "All operator checks running in background — move on to Lab 1.3."
 ----
 
 == What is Happening Under the Hood
@@ -101,6 +99,6 @@ OLM (Operator Lifecycle Manager) resolves each `Subscription` against the operat
 Subscription → InstallPlan → CRDs → RBAC → Operator Pod → Succeeded
 ----
 
-Each operator registers new Kubernetes resource types you will use in subsequent labs: `InferenceService`, `CheCluster`, `ClusterPolicy`, `NodeFeatureDiscovery`, `ArgoCD`, `TektonConfig`.
+Each operator registers Kubernetes types you will use next: `LLMInferenceService`, `MaaSModelRef`, `CheCluster`, `ClusterPolicy`, `Kuadrant`.
 
-➡️ Move immediately to *Lab 3: Discover OpenShift AI* while operators install in the background.
+➡️ Move immediately to *Lab 1.3: Discover OpenShift AI* while operators install in the background.

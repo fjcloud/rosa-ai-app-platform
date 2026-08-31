@@ -1,0 +1,40 @@
+# Dev Spaces 3.29+ Technology Preview: AI tool registry.
+# Creates the dashboard AI Selector and injects OpenCode into workspaces
+# (no postStart curl | bash). CheCluster lives in openshift-operators.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-tool-registry
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/component: ai-tool-registry
+    app.kubernetes.io/part-of: che.eclipse.org
+data:
+  registry.json: |
+    {
+      "providers": [
+        {
+          "id": "opencodeai/opencode",
+          "name": "OpenCode",
+          "publisher": "opencode.ai",
+          "description": "Open-source terminal AI coding agent, pre-wired to Qwen3.8 via Models-as-a-Service.",
+          "docsUrl": "https://opencode.ai",
+          "icon": "https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@latest/icons/opencode.svg",
+          "tags": ["Tech-Preview"]
+        }
+      ],
+      "tools": [
+        {
+          "providerId": "opencodeai/opencode",
+          "tag": "next",
+          "name": "OpenCode",
+          "url": "https://opencode.ai",
+          "binary": "opencode",
+          "pattern": "init",
+          "injectorImage": "quay.io/che-incubator/dashboard-ai/opencode:next",
+          "envVarName": "OPENAI_API_KEY",
+          "arch": ["amd64", "arm64"]
+        }
+      ],
+      "defaultAiProviders": ["opencodeai/opencode"]
+    }

@@ -10,7 +10,8 @@
 # Prerequisites:
 #   - oc is logged in with cluster-admin
 #   - GIT_SERVER is set (or defaults to the value below)
-#   - GPU InferenceService qwen3 is Ready in namespace llm-serving
+#   - GPU LLMInferenceService qwen3 is Ready in namespace llm-serving
+#   - MaaS workshop API key exists (or will be minted)
 # =============================================================================
 set -euo pipefail
 
@@ -19,8 +20,10 @@ GIT_SERVER="${GIT_SERVER:-https://gitpop.apps.sno.msl.cloud}"
 APP_NAME="${APP_NAME:-fortune-cookie}"
 E2E_NS="${E2E_NS:-workshop-e2e}"
 TEMPLATE_URL="${TEMPLATE_URL:-https://github.com/fjcloud/go-app-template}"
-LLM_URL="http://qwen3-predictor.llm-serving.svc.cluster.local:8080/v1"
+LLM_HOST="${LLM_HOST:-maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || true)}"
+LLM_URL="${LLM_URL:-https://${LLM_HOST}/llm-serving/qwen3/v1}"
 LLM_MODEL="qwen3"
+LLM_KEY="${LLM_KEY:-}"
 GITPOP_BIN="/tmp/gitpop-e2e"   # still needed for the gitpop helper function
 DEV_POD="e2e-developer"
 DEV_IMAGE="quay.io/devfile/universal-developer-image:latest"
@@ -42,7 +45,7 @@ require() {
 
 check_llm_ready() {
   local ready
-  ready=$(oc get inferenceservice qwen3 -n llm-serving \
+  ready=$(oc get llminferenceservice qwen3 -n llm-serving \
     -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
   [[ "$ready" == "True" ]]
 }
@@ -66,7 +69,8 @@ info "User:    $(oc whoami)"
 info "Git server: $GIT_SERVER"
 
 oc cluster-info &>/dev/null || fail "Not connected to a cluster"
-check_llm_ready || warn "LLM InferenceService not Ready — deploy steps will still run but LLM prompts may fail"
+check_llm_ready || warn "LLMInferenceService not Ready — deploy steps will still run but LLM prompts may fail"
+LLM_KEY="${LLM_KEY:-$(oc get secret ai-provider-openai-api-key -n openshift-operators -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null | base64 -d || true)}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 1 — Platform Engineer: verify the pre-initialized template repository
@@ -118,6 +122,7 @@ oc run "$DEV_POD" \
   --env="APP_NAME=$APP_NAME" \
   --env="LLM_URL=$LLM_URL" \
   --env="LLM_MODEL=$LLM_MODEL" \
+  --env="OPENAI_API_KEY=$LLM_KEY" \
   --env="HOME=/home/user" \
   --env="PATH=/home/user/.opencode/bin:/home/user/.local/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
   -- sleep infinity
@@ -163,37 +168,40 @@ $POD_EXEC bash -c "
   git config user.email 'dev@workshop.local'
   git config user.name 'E2E Developer'
 
-  # Patch opencode.json to point at the current cluster's LLM endpoint
-  # (the template may have a stale URL from a different cluster)
+  # Platform injects this file in Dev Spaces. The e2e pod is not a DevWorkspace,
+  # so write the same Qwen3.8 config OpenCode reads from XDG_CONFIG_HOME.
+  mkdir -p \$HOME/.config/opencode
   python3 << 'PYEOF'
-import json, re
-
-f = 'opencode.json'
-d = json.load(open(f))
-
-LLM_URL = 'http://qwen3-predictor.llm-serving.svc.cluster.local:8080/v1'
-LLM_MODEL = 'qwen3'
-
-new_provider = {
-    'npm': '@ai-sdk/openai-compatible',
-    'name': 'Qwen3',
-    'options': {
-        'baseURL': LLM_URL,
-        'apiKey': 'dummy',
+import json, os
+cfg = {
+  '\$schema': 'https://opencode.ai/config.json',
+  'provider': {
+    'qwen3': {
+      'npm': '@ai-sdk/openai-compatible',
+      'name': 'Qwen3.8',
+      'options': {
+        'baseURL': os.environ.get('LLM_URL', 'https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1'),
+        'apiKey': os.environ.get('OPENAI_API_KEY', ''),
         'chunkTimeout': 120000,
         'timeout': 600000
-    },
-    'models': {
-        LLM_MODEL: {
-            'name': 'Qwen3.6-35B-A3B',
-            'maxTokens': 8192
+      },
+      'models': {
+        'qwen3': {
+          'name': 'Qwen3.8',
+          'limit': {'context': 40960, 'output': 8192}
         }
+      }
     }
+  },
+  'model': 'qwen3/qwen3',
+  'autoupdate': False
 }
-d['provider'] = {LLM_MODEL: new_provider}
-d['model'] = f'{LLM_MODEL}/{LLM_MODEL}'
-json.dump(d, open(f, 'w'), indent=2)
-print('opencode.json patched to:', LLM_URL)
+d = os.path.expanduser('~/.config/opencode')
+os.makedirs(d, exist_ok=True)
+for name in ('opencode.json', 'opencode.jsonc'):
+  path = os.path.join(d, name)
+  json.dump(cfg, open(path, 'w'), indent=2)
+  print('Wrote', path)
 PYEOF
 
   ls -la
@@ -202,78 +210,38 @@ PYEOF
 "
 ok "Template cloned to ~/\$APP_NAME in pod"
 
-# ── Write app files (mirrors what OpenCode does interactively in Dev Spaces) ──
-# In the real workshop, a developer uses the OpenCode TUI interactively.
-# The e2e test writes the expected output deterministically so the CI/CD
-# pipeline validation is reliable regardless of LLM inference timing.
-step "Phase 2c: Write Fortune Cookie app files"
+# ── Generate app files with OpenCode (same prompt as Lab 2.2) ──
+step "Phase 2c: Generate Fortune Cookie app with OpenCode + Qwen3.8"
 
-info "Writing main.go, go.mod, Dockerfile to ~/\$APP_NAME..."
+info "Running OpenCode against in-cluster Qwen3.8..."
 
 $POD_EXEC bash -c "
   cd ~/\$APP_NAME
+  export PATH=/home/user/.opencode/bin:/home/user/.local/bin:\$PATH
+  opencode --version
+  echo '--- ~/.config/opencode/opencode.json ---'
+  cat ~/.config/opencode/opencode.json
+  echo
+  echo '--- OpenCode run (timeout 4 min) ---'
+  timeout 360 opencode run --print-logs << 'PROMPTEOF' || echo 'OpenCode exited (timeout or error) — checking generated files'
+Implement the Fortune Cookie application following AGENTS.md strictly.
 
-  cat > main.go << 'GOEOF'
-package main
+Generate these files:
+1. main.go       — HTTP server on :8080, GET / (HTML fortune, at least 10 messages) and GET /healthz
+2. go.mod        — module: fortune-cookie, go 1.22
+3. Dockerfile    — use the exact two-stage template from AGENTS.md
+                   (ubi9/go-toolset builder → ubi9/ubi-minimal runtime, USER 1001)
 
-import (
-	\"encoding/json\"
-	\"fmt\"
-	\"math/rand\"
-	\"net/http\"
-)
+After writing every file, run:
+  CGO_ENABLED=0 go build -buildvcs=false -o /dev/null .
 
-var fortunes = []string{
-	\"A journey of a thousand miles begins with a single step.\",
-	\"The best time to plant a tree was 20 years ago. The second best time is now.\",
-	\"In the middle of difficulty lies opportunity.\",
-	\"It does not matter how slowly you go as long as you do not stop.\",
-	\"The secret of getting ahead is getting started.\",
-	\"Life is what happens when you're busy making other plans.\",
-	\"You will find joy in unexpected places.\",
-	\"Success is not the key to happiness. Happiness is the key to success.\",
-	\"Every day is a new beginning.\",
-	\"Believe you can and you're halfway there.\",
-}
-
-func main() {
-	http.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) {
-		fortune := fortunes[rand.Intn(len(fortunes))]
-		fmt.Fprintf(w, \"<html><body><h1>🥠 Fortune Cookie</h1><p>%s</p></body></html>\", fortune)
-	})
-	http.HandleFunc(\"/healthz\", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(\"Content-Type\", \"application/json\")
-		json.NewEncoder(w).Encode(map[string]string{\"status\": \"ok\"})
-	})
-	http.ListenAndServe(\":8080\", nil)
-}
-GOEOF
-
-  cat > go.mod << 'MODEOF'
-module fortune-cookie
-
-go 1.22
-MODEOF
-
-  cat > Dockerfile << 'DFEOF'
-FROM registry.access.redhat.com/ubi9/go-toolset:latest AS builder
-WORKDIR /tmp/build
-COPY go.mod ./
-COPY . .
-RUN CGO_ENABLED=0 go build -buildvcs=false -o fortune-cookie .
-
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
-WORKDIR /app
-COPY --from=builder /tmp/build/fortune-cookie .
-EXPOSE 8080
-USER 1001
-ENTRYPOINT [\"/app/fortune-cookie\"]
-DFEOF
-
-  echo 'App files written'
+Fix any compile error before finishing. Show the build output.
+Do NOT run ansible playbooks. Stop after the Go build succeeds.
+PROMPTEOF
+  echo '--- generated files ---'
   ls -la main.go go.mod Dockerfile
 "
-ok "App files written"
+ok "OpenCode generation finished"
 
 # Verify the app compiles
 info "Verifying Go build..."
@@ -430,27 +398,33 @@ check "ArgoCD instance created in ${APP_NAME}-dev" \
 check "Argo CD Application '${APP_NAME}' created" \
   "oc get application ${APP_NAME} -n ${APP_NAME}-dev"
 
-# Wait for Argo CD to sync before checking deployment (up to 4 min)
+# Wait for Argo CD to sync and become Healthy (up to 6 min).
+# App manifests keep the template name (fortune-cookie); APP_NAME is the git/ns name.
 info "Waiting for developer Argo CD to sync..."
-for i in $(seq 1 24); do
+for i in $(seq 1 36); do
   SYNC=$(oc get application "${APP_NAME}" -n "${APP_NAME}-dev" \
     -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
-  [[ "$SYNC" == "Synced" ]] && break
+  HEALTH=$(oc get application "${APP_NAME}" -n "${APP_NAME}-dev" \
+    -o jsonpath='{.status.health.status}' 2>/dev/null || echo "")
+  [[ "$SYNC" == "Synced" && "$HEALTH" == "Healthy" ]] && break
   sleep 10
 done
 
-check "Deployment '${APP_NAME}' is available" \
-  "oc get deployment ${APP_NAME} -n ${APP_NAME}-dev \
+APP_DEPLOY=$(oc get deploy -n "${APP_NAME}-dev" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+  2>/dev/null | grep -v '^argocd-' | head -1 || true)
+
+check "App Deployment '${APP_DEPLOY:-<none>}' is available" \
+  "[[ -n '${APP_DEPLOY}' ]] && oc get deployment '${APP_DEPLOY}' -n '${APP_NAME}-dev' \
    -o jsonpath='{.status.availableReplicas}' | grep -qE '[1-9]'"
 
 # 3e — Live application
 step "Phase 3e: Live application"
 
-APP_ROUTE=$(oc get route "${APP_NAME}" -n "${APP_NAME}-dev" \
-  -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
+APP_ROUTE=$(oc get route -n "${APP_NAME}-dev" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.host}{"\n"}{end}' \
+  2>/dev/null | grep -v '^argocd-server' | awk 'NF{print $2; exit}' || true)
 
 if [[ -z "$APP_ROUTE" ]]; then
-  warn "FAIL: Route '${APP_NAME}' not found in ${APP_NAME}-dev"
+  warn "FAIL: App Route not found in ${APP_NAME}-dev"
   FAILURES=$((FAILURES + 1))
 else
   ok "Route: https://${APP_ROUTE}"
@@ -467,6 +441,7 @@ step "Phase 3f: LLM API smoke test"
 
 LLM_RESP=$(oc exec "$DEV_POD" -n "$E2E_NS" -- bash -c "
   curl -sf '${LLM_URL}/chat/completions' \
+    -H 'Authorization: Bearer ${LLM_KEY}' \
     -H 'Content-Type: application/json' \
     -d '{
       \"model\": \"${LLM_MODEL}\",

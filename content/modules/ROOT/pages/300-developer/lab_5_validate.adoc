@@ -205,7 +205,7 @@ The governance is real — the running pod has the right security context, probe
 
 *This is AI-native platform engineering.*
 
-== Module 300 Complete 🎉
+== Module 2 Complete 🎉
 
 [cols="1,2", options="header"]
 |===
@@ -214,7 +214,7 @@ The governance is real — the running pod has the right security context, probe
 | Dev Space launched, OpenCode connected to in-cluster LLM
 | ✅
 
-| Fortune Cookie app generated live by OpenCode + Qwen3.6
+| Fortune Cookie app generated live by OpenCode + Qwen3.8
 | ✅ (`main.go`, `go.mod`, `Dockerfile` — all from a prompt)
 
 | Binary compiled and verified locally before pushing
@@ -233,4 +233,4 @@ The governance is real — the running pod has the right security context, probe
 | ✅
 |===
 
-➡️ Move on to *Module 400: LLM Observability & Governance*.
+➡️ Move on to *Module 3: LLM Observability & Governance*.

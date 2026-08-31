@@ -1,0 +1,136 @@
+# OpenCode reads $XDG_CONFIG_HOME/opencode/opencode.json (default: ~/.config/opencode).
+# The official injector wrapper otherwise redirects XDG to /tmp/opencode-home/.config.
+# Mount the Qwen3.8 config in both places and set XDG_CONFIG_HOME so either binary finds it.
+#
+# Developers call Models-as-a-Service (not the predictor Service). The API model id
+# stays "qwen3"; the display name is Qwen3.8. After MaaS is Ready, mint a key:
+#   bash deploy/inference/mint-workshop-key.sh
+# That writes Secret ai-provider-openai-api-key (OPENAI_API_KEY / sk-oai-...).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-xdg-env
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/part-of: che.eclipse.org
+    app.kubernetes.io/component: workspaces-config
+    controller.devfile.io/mount-to-devworkspace: "true"
+    controller.devfile.io/watch-configmap: "true"
+  annotations:
+    controller.devfile.io/mount-as: env
+data:
+  XDG_CONFIG_HOME: /home/user/.config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-workspace-config
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/part-of: che.eclipse.org
+    app.kubernetes.io/component: workspaces-config
+    controller.devfile.io/mount-to-devworkspace: "true"
+    controller.devfile.io/watch-configmap: "true"
+  annotations:
+    controller.devfile.io/mount-as: subpath
+    controller.devfile.io/mount-path: /home/user/.config/opencode
+    controller.devfile.io/mount-on-start: "true"
+data:
+  opencode.json: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "provider": {
+        "qwen3": {
+          "npm": "@ai-sdk/openai-compatible",
+          "name": "Qwen3.8",
+          "options": {
+            "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
+            "apiKey": "{env:OPENAI_API_KEY}",
+            "chunkTimeout": 120000,
+            "timeout": 600000
+          },
+          "models": {
+            "qwen3": {
+              "name": "Qwen3.8",
+              "limit": {
+                "context": 40960,
+                "output": 8192
+              }
+            }
+          }
+        }
+      },
+      "model": "qwen3/qwen3",
+      "autoupdate": false
+    }
+  opencode.jsonc: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "provider": {
+        "qwen3": {
+          "npm": "@ai-sdk/openai-compatible",
+          "name": "Qwen3.8",
+          "options": {
+            "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
+            "apiKey": "{env:OPENAI_API_KEY}",
+            "chunkTimeout": 120000,
+            "timeout": 600000
+          },
+          "models": {
+            "qwen3": {
+              "name": "Qwen3.8",
+              "limit": {
+                "context": 40960,
+                "output": 8192
+              }
+            }
+          }
+        }
+      },
+      "model": "qwen3/qwen3",
+      "autoupdate": false
+    }
+---
+# Same config for the official OpenCode injector wrapper default XDG path.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-injector-config
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/part-of: che.eclipse.org
+    app.kubernetes.io/component: workspaces-config
+    controller.devfile.io/mount-to-devworkspace: "true"
+    controller.devfile.io/watch-configmap: "true"
+  annotations:
+    controller.devfile.io/mount-as: subpath
+    controller.devfile.io/mount-path: /tmp/opencode-home/.config/opencode
+    controller.devfile.io/mount-on-start: "true"
+data:
+  opencode.json: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "provider": {
+        "qwen3": {
+          "npm": "@ai-sdk/openai-compatible",
+          "name": "Qwen3.8",
+          "options": {
+            "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
+            "apiKey": "{env:OPENAI_API_KEY}",
+            "chunkTimeout": 120000,
+            "timeout": 600000
+          },
+          "models": {
+            "qwen3": {
+              "name": "Qwen3.8",
+              "limit": {
+                "context": 40960,
+                "output": 8192
+              }
+            }
+          }
+        }
+      },
+      "model": "qwen3/qwen3",
+      "autoupdate": false
+    }

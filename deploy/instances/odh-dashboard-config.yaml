@@ -1,0 +1,15 @@
+# Overlay applied by configure-dashboard.sh after the operator creates the CR.
+# Do not set deprecated dashboardConfig keys (maasAuthPolicies, etc.) — the CRD rejects them.
+# Docs: https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/deploy-and-manage-models-as-a-service
+apiVersion: opendatahub.io/v1alpha
+kind: OdhDashboardConfig
+metadata:
+  name: odh-dashboard-config
+  namespace: redhat-ods-applications
+spec:
+  dashboardConfig:
+    disableTracking: true
+    modelAsService: true
+    genAiStudio: true
+    vLLMDeploymentOnMaaS: true
+    observabilityDashboard: false

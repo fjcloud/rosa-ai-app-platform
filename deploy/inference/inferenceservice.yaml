@@ -1,3 +1,5 @@
+# Superseded by LLMInferenceService + MaaS. Not included in kustomization.yaml.
+# Do not apply this alongside llminferenceservice.yaml — both need the one GPU.
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:

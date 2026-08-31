@@ -144,4 +144,4 @@ echo "https://$(oc get route argocd-server -n ${APP_NAME}-dev -o jsonpath='{.spe
 
 You made one change. The platform delivered it — zero manual `kubectl apply`, zero interaction with the registry, zero cluster-admin access.
 
-➡️ Move on to *Lab 5: Validate Best Practices with OpenCode*.
+➡️ Move on to *Lab 2.4: Validate Best Practices with OpenCode*.

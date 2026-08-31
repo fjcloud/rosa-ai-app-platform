@@ -30,7 +30,7 @@ ls
 .Expected
 [source,console]
 ----
-AGENTS.md  deploy/  devfile.yaml  gitops/  opencode.json  pipeline/  scripts/
+AGENTS.md  deploy/  devfile.yaml  gitops/  pipeline/  scripts/
 ----
 
 Launch OpenCode:
@@ -163,4 +163,4 @@ Open both URLs in your browser:
 
 image::cicd-gitops.png[Developer GitOps Pipeline, align="center"]
 
-➡️ Move on to *Lab 4: Ship It — Validate the GitOps Loop*.
+➡️ Move on to *Lab 2.3: Ship It — Change → Build → Deploy*.

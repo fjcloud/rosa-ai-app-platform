@@ -1,6 +1,6 @@
 = Module 3 — LLM Metrics & GPU Monitoring
 
-Every developer on the platform has just used Qwen3.6 — through OpenCode during development and through the Fortune Cookie app at runtime. From the Platform Engineer's perspective, this LLM consumption is real infrastructure cost. In this module, you look at what happened: how much GPU was used, how the model performed under load, and how you would govern LLM usage at scale.
+Every developer on the platform has just used Qwen3.8 — through OpenCode during development and through the Fortune Cookie app at runtime. From the Platform Engineer's perspective, this LLM consumption is real infrastructure cost. In this module, you look at what happened: how much GPU was used, how the model performed under load, and how you would govern LLM usage at scale.
 
 [NOTE]
 ====
@@ -16,7 +16,7 @@ Every developer on the platform has just used Qwen3.6 — through OpenCode durin
 | Dashboard | What It Shows
 
 | *NVIDIA DCGM Exporter Dashboard*
-| Raw GPU hardware metrics: utilization %, VRAM usage, temperature, power draw, PCIe bandwidth. Auto-loaded into the OpenShift monitoring console by the `opencode-devspace` instance Kustomize layer.
+| Raw GPU hardware metrics: utilization %, VRAM usage, temperature, power draw, PCIe bandwidth. Loaded into the OpenShift monitoring console by `deploy/instances` (`nvidia-dcgm-exporter-dashboard` ConfigMap).
 
 | *OpenShift AI Model Metrics*
 | LLM-specific metrics: requests/sec, tokens generated per second (throughput), time-to-first-token (TTFT), request latency percentiles, concurrent requests in-flight.
@@ -47,7 +47,7 @@ image::dcgm-dashboard.png[NVIDIA DCGM Dashboard showing GPU utilization, align="
 | 30-95% during load
 
 | *GPU Memory Used (GiB)*
-| VRAM consumed by the model weights + KV cache. Qwen3.6 AWQ-4bit uses ~20 GB of the 48 GB L40S.
+| VRAM consumed by the model weights + KV cache. Qwen3.8-27B INT4 uses ~20 GB of the 48 GB L40S.
 | ~20-40 GiB
 
 | *GPU Temperature (°C)*
@@ -103,7 +103,7 @@ Shows requests per second successfully served by vLLM. During the workshop, you 
 rate(vllm:generation_tokens_total{namespace="llm-serving"}[5m])
 ----
 
-Tokens generated per second. A 35B model on an L40S typically achieves 20-60 tokens/sec depending on batch size and prompt length.
+Tokens generated per second. Qwen3.8-27B INT4 on an L40S typically achieves 20-60 tokens/sec depending on batch size and prompt length.
 
 ==== Time to First Token (TTFT)
 
@@ -170,8 +170,8 @@ gpu  No           1         g6e.xlarge     nvidia.com/gpu=present:NoSchedule
 
 [source,sh,role=execute]
 ----
-oc get inferenceservice qwen3 -n llm-serving \
-  -o jsonpath='{.status.components.predictor}'
+oc get llminferenceservice qwen3 -n llm-serving \
+  -o jsonpath='{.status.url}'
 ----
 
 [NOTE]
@@ -197,80 +197,60 @@ oc adm top pod -n fortune-cookie-dev 2>/dev/null || \
 oc get pod -n fortune-cookie-dev
 ----
 
-== Part 4: Token-Based Governance with Red Hat Connectivity Link
+== Part 4: Token-Based Governance with Models-as-a-Service
 
-So far you have watched GPU metrics. But what about *token* consumption — the unit that actually drives LLM costs? Red Hat provides two complementary mechanisms for this.
+So far you have watched GPU metrics. Token consumption is the unit that actually drives LLM cost. OpenShift AI 3.5 Models-as-a-Service (subscription model, not the 3.3 tiers) plus Connectivity Link enforce that at the gateway.
 
-=== TokenRateLimitPolicy (Red Hat Connectivity Link)
+=== What this cluster already has
 
-Introduced in February 2026, `TokenRateLimitPolicy` extends the Envoy gateway to enforce per-user or per-team *token budgets* rather than simple request counts. This is the right unit for LLM billing: a one-sentence prompt costs 20 tokens; a full code review might cost 8,000.
+Lab 1.4 created the subscription and auth policy. Open the dashboard at `https://rh-ai.apps.<apps-domain>/` to browse the catalog and keys, or inspect the same objects with `oc`:
 
-How it works:
+* `MaaSAuthPolicy/qwen3-access` — `system:authenticated` may call Qwen3.8
+* `MaaSSubscription/qwen3-workshop` — **5 000 000 tokens / 24h** (workshop-generous; tighten this for production)
+* Kuadrant `TokenRateLimitPolicy/maas-trlp-qwen3` — generated from the subscription
+* `sk-oai-` keys minted against that subscription
 
-. `AuthPolicy` validates API keys and injects user metadata (team, tier) into the request.
-. `TokenRateLimitPolicy` intercepts the LLM response and extracts the `usage` field from the OpenAI-compatible response body.
-. Tokens are counted against the user's daily quota. If the budget is exceeded, subsequent requests receive HTTP 429.
+Both a subscription *and* an auth policy are required. Auth only → HTTP 429 (no quota). Subscription only → HTTP 403 (no gateway access).
 
-Example policy with two tiers:
+=== Inspect the live objects
+
+[source,sh,role=execute]
+----
+oc get maasmodelref -n llm-serving
+oc get maasauthpolicy,maassubscription -n models-as-a-service
+oc get tokenratelimitpolicy -n llm-serving
+----
+
+The subscription YAML (quota lives per model ref, not at spec root):
 
 [source,yaml]
 ----
-apiVersion: kuadrant.io/v1alpha1
-kind: TokenRateLimitPolicy
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSSubscription
 metadata:
-  name: llm-token-limits
-  namespace: llm-serving
+  name: qwen3-workshop
+  namespace: models-as-a-service
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: qwen3-route
-  limits:
-    free-tier:
-      rates:
-        - limit: 20000
-          window: 1d
-      when:
-        - predicate: "auth.identity.group == 'free'"
-    developer-tier:
-      rates:
-        - limit: 200000
-          window: 1d
-      when:
-        - predicate: "auth.identity.group == 'developer'"
+  priority: 10
+  owner:
+    groups:
+      - name: system:authenticated
+  modelRefs:
+    - name: qwen3
+      namespace: llm-serving
+      tokenRateLimits:
+        - limit: 5000000
+          window: 24h
 ----
-
-Users in the `free` tier are limited to 20 000 tokens per day; `developer` tier gets 200 000. The policy works against any OpenAI-compatible endpoint — including your Qwen3.6 `InferenceService`.
-
-=== Models-as-a-Service (RHOAI 3.3)
-
-OpenShift AI 3.3 ships Models-as-a-Service (MaaS) as a Technology Preview. MaaS adds a management layer on top of `InferenceService` objects:
-
-[cols="1,2", options="header"]
-|===
-| Capability | Description
-
-| *API Key management*
-| Users obtain per-project API keys through a self-service portal or CLI. Keys are scoped to specific models.
-
-| *Subscription tiers*
-| Platform Engineer defines tiers (free / developer / enterprise) with different token limits and request rates.
-
-| *Usage tracking*
-| MaaS records token consumption per API key. Available as a Prometheus metric: `maas:token_usage_total`.
-
-| *Chargeback*
-| Aggregate `maas:token_usage_total` by team label → export to cloud billing or internal cost allocation tools.
-|===
 
 [TIP]
 ====
-MaaS + `TokenRateLimitPolicy` together give you the full governance stack: *authentication* (who), *quota* (how much), *tracking* (how many tokens used), and *enforcement* (HTTP 429 when over budget).
+MaaS + Limitador give you the full governance stack: *authentication* (who), *quota* (how much), *tracking* (tokens used), *enforcement* (HTTP 429 when over budget).
 ====
 
 === Token Consumption PromQL
 
-With MaaS or vLLM's native metrics, you can track token usage per namespace:
+With User Workload Monitoring enabled, vLLM and MaaS metrics are scrapeable:
 
 [source,promql]
 ----
@@ -290,18 +270,16 @@ sum by (namespace) (
 
 === Cost Model
 
-With token metrics, a Platform Engineer can build a real cost model:
-
 [source]
 ----
 GPU instance  : g6e.xlarge (L40S) ~$1.65/hr (on-demand)
-Token rate    : ~30 tokens/sec at moderate load
-Cost/token    : $1.65 / 3600s / 30 tok = ~$0.000015 / token
+Token rate    : ~43 tokens/sec decode on this L40S (single stream)
+Cost/token    : $1.65 / 3600s / 43 tok ≈ ~$0.000011 / token
 
 Example workloads (per hour):
-  Developer OpenCode session : ~50 000 tokens → ~$0.75
-  Fortune Cookie app (100 rq): ~4 000 tokens  → ~$0.06
-  10 concurrent developers   : ~500 000 tokens → ~$7.50
+  Developer OpenCode session : ~50 000 tokens → ~$0.55
+  Fortune Cookie app (100 rq): ~4 000 tokens  → ~$0.04
+  10 concurrent developers   : ~500 000 tokens → ~$5.50
 ----
 
 Reserved or Spot GPU instances on ROSA reduce these costs by 40-70%.
@@ -312,38 +290,38 @@ Reserved or Spot GPU instances on ROSA reduce these costs by 40-70%.
 |===
 | Capability | Mechanism
 
-| *Per-team token quotas*
-| `TokenRateLimitPolicy` via Red Hat Connectivity Link
+| *Per-group token quotas*
+| `MaaSSubscription` → Kuadrant `TokenRateLimitPolicy`
 
 | *Self-service API keys*
-| Models-as-a-Service (RHOAI 3.3 Tech Preview)
+| Dashboard (Gen AI / Models-as-a-Service) or `POST /maas-api/v1/api-keys` (OpenShift token in, one `sk-oai-` key out)
 
 | *Usage tracking*
-| `maas:token_usage_total` or `vllm:generation_tokens_total` by namespace
+| vLLM `generation_tokens_total` / `prompt_tokens_total`; Limitador token counters
 
 | *Chargeback*
 | Prometheus → cost model → cloud billing integration
 
 | *Model versioning*
-| Multiple `InferenceService` objects; Argo CD controls promotion
+| Multiple `LLMInferenceService` + `MaaSModelRef` objects; Argo CD controls promotion
 
 | *Audit trail*
-| OpenTelemetry tracing from app → LLM → vLLM logs (Tempo/Jaeger)
+| Gateway access logs + vLLM request logs
 |===
 
-== ✅ Module 400 Checkpoint
+== ✅ Module 3 Checkpoint
 
 [source,sh,role=execute]
 ----
 # GPU node is running and monitored
 oc get node -l node.kubernetes.io/instance-type=g6e.xlarge
 
-# InferenceService is still healthy
-oc get inferenceservice -n llm-serving
+# LLMInferenceService and MaaS catalog are healthy
+oc get llminferenceservice,maasmodelref -n llm-serving
 
 # Fortune Cookie app is still serving
 curl -s https://$(oc get route fortune-cookie -n fortune-cookie-dev \
-  -o jsonpath='{.spec.host}')/fortune
+  -o jsonpath='{.spec.host}')/healthz
 ----
 
 .Expected Output
@@ -352,8 +330,8 @@ curl -s https://$(oc get route fortune-cookie -n fortune-cookie-dev \
 NAME                                      STATUS   ROLES    AGE
 ip-10-x-x-x.eu-west-1.compute.internal   Ready    worker   45m
 
-NAME     READY   PREV   LATEST   AGE
-qwen3    True    0      100      40m
+NAME     URL                         READY
+qwen3    https://maas.apps.../llm-serving/qwen3   True
 
 Even the smallest deployment, monitored well, reveals the architecture of great systems.
 ----

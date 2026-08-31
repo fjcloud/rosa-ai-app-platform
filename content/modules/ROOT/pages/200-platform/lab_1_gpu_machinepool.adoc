@@ -1,6 +1,6 @@
 = Lab 1.1 — Deploy a GPU Machine Pool
 
-In this lab, you will add a GPU-backed machine pool to your ROSA cluster. This pool will host the NVIDIA GPU that powers the Qwen3.6 inference service.
+In this lab, you will add a GPU-backed machine pool to your ROSA cluster. This pool will host the NVIDIA GPU that powers the Qwen3.8 inference service.
 
 [NOTE]
 ====
@@ -25,7 +25,7 @@ Key parameters for the GPU pool:
 | Parameter | Value & Rationale
 
 | `--instance-type g6e.xlarge`
-| 1× NVIDIA GPU (24+ GB VRAM), suitable for serving Qwen3.6-35B MoE quantized (AWQ 4-bit)
+| 1× NVIDIA L40S (48 GB VRAM), enough for Qwen3.8-27B INT4
 
 | `--replicas 1`
 | Fixed single GPU node — sufficient for this workshop and keeps costs predictable

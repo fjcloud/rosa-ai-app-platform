@@ -3,6 +3,9 @@ kind: Kustomization
 resources:
   # OpenShift Dev Spaces
   - checluster.yaml
+  - ai-tool-registry.yaml
+  - opencode-workspace-config.yaml
+  - vscode-editor-configurations.yaml
   # Node Feature Discovery
   - nfd-instance.yaml
   # NVIDIA GPU Operator
@@ -10,6 +13,13 @@ resources:
   # OpenShift AI (RHOAI)
   - rhoai-dsci.yaml
   - rhoai-dsc.yaml
+  # Models-as-a-Service prerequisites
+  - uwm-cluster-monitoring-config.yaml
+  - gatewayclass.yaml
+  - maas-gateway.yaml
+  - lws-operator.yaml
+  - kuadrant.yaml
+  - maas-postgres.yaml
 
 configMapGenerator:
   - name: nvidia-dcgm-exporter-dashboard

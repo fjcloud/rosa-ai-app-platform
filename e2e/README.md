@@ -1,34 +1,26 @@
 # E2E Workshop Validation
 
-End-to-end script that validates the full workshop flow from a single terminal — no DevSpaces UI required.
+Two scripts, matching the two workshop personas. Neither needs the Dev Spaces UI.
 
-## What it does
+| Script | Persona | What it checks |
+|--------|---------|----------------|
+| `e2e/platform-run.sh` | Platform Engineer | GPU pool, operators, DSC (KServe + MaaS + dashboard + OGX), Dev Spaces, `LLMInferenceService/qwen3`, MaaS CRs, minted `sk-oai-` key, smoke `POST /chat/completions` |
+| `e2e/dev-run.sh` | Developer | Template repo, OpenCode-generated Fortune Cookie, Tekton image, Argo CD sync, live route |
 
-| Phase | Actor | What happens |
-|-------|-------|-------------|
-| **Phase 1** | Platform Engineer | Creates `go-app-template` repo on the Git server with `AGENTS.md`, `devfile.yaml`, `opencode.json` — exactly what the PE does in Lab 5 |
-| **Phase 2** | Developer simulation | Deploys a UDI container in the cluster, installs OpenCode + gitpop, clones the template, sends two OpenCode prompts (build + deploy) |
-| **Phase 3** | Validation | Checks generated files, Git repos, image build, Argo CD sync, live route, and LLM API |
+Cleanup: `e2e/platform-cleanup.sh` and `e2e/dev-cleanup.sh`.
 
 ## Prerequisites
 
 - `oc` logged in with cluster-admin
-- Qwen3 `InferenceService` Ready in `llm-serving` namespace
-- Argo CD `workshop` AppProject created (done in Lab 2)
-- OpenShift Pipelines running
+- Workshop GitOps already applied (`deploy/operators`, `deploy/instances`, `deploy/inference`)
+- `LLMInferenceService/qwen3` Ready in `llm-serving` and published through Models-as-a-Service
 
 ## Usage
 
 ```bash
-# Run with defaults
 export GIT_SERVER=https://gitpop.apps.sno.msl.cloud
-bash e2e/run.sh
-
-# Override app name or namespace
-APP_NAME=my-test-app E2E_NS=my-e2e bash e2e/run.sh
-
-# Clean up all created resources
-bash e2e/cleanup.sh
+bash e2e/platform-run.sh
+bash e2e/dev-run.sh
 ```
 
 ## Environment variables
@@ -36,28 +28,9 @@ bash e2e/cleanup.sh
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GIT_SERVER` | `https://gitpop.apps.sno.msl.cloud` | Git server base URL |
-| `APP_NAME` | `fortune-cookie` | Name of the generated app |
+| `APP_NAME` | `fortune-cookie` | Name of the generated app (`dev-run.sh`) |
 | `E2E_NS` | `workshop-e2e` | Namespace for the developer simulation pod |
+| `LLM_NS` | `llm-serving` | Model namespace (`platform-run.sh`) |
+| `MAAS_HOST` | `maas.<apps-domain>` | MaaS gateway hostname |
 
-## What gets created
-
-- Git repos: `go-app-template`, `fortune-cookie` on the Git server
-- Namespaces: `workshop-e2e`, `fortune-cookie-build`, `fortune-cookie-dev`
-- BuildConfig + ImageStream in `fortune-cookie-build`
-- Argo CD Application `fortune-cookie` in `openshift-gitops`
-- Deployment + Route in `fortune-cookie-dev`
-
-## Interpreting results
-
-The script exits 0 if all checks pass, 1 if any fail.
-Each check prints `✅` (pass) or `⚠️ FAIL` (fail) with a label.
-
-OpenCode build and deploy logs are saved in the pod at:
-- `/tmp/opencode-build.log`
-- `/tmp/opencode-deploy.log`
-
-To inspect them after a run:
-```bash
-oc exec e2e-developer -n workshop-e2e -- cat /tmp/opencode-build.log
-oc exec e2e-developer -n workshop-e2e -- cat /tmp/opencode-deploy.log
-```
+The scripts exit 0 if all checks pass, 1 if any fail. Each check prints ✅ or ⚠️ FAIL.

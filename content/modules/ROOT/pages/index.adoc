@@ -25,7 +25,7 @@ image::architecture-overview.png[Architecture Overview, align="center"]
 
 === Platform Engineer Track
 * A fixed-size *GPU machine pool* on ROSA — one GPU node, no manual EC2 interaction
-* *OpenShift AI (RHOAI)* with KServe serving *Qwen3.6-35B* (a state-of-the-art MoE reasoning model) via a fully *OpenAI-compatible REST API*
+* *OpenShift AI* with Models-as-a-Service serving *Qwen3.8-27B* (Red Hat AI INT4) behind a governed OpenAI-compatible HTTPS API, plus the OpenShift AI dashboard for catalog and keys
 * *OpenShift Dev Spaces* — a browser-based cloud IDE pre-configured for every developer
 * *AGENTS.md* — a machine-readable rulebook that makes OpenCode enforce your platform conventions automatically
 * A *Go application template* — the "golden template" developers clone to start new projects
@@ -33,7 +33,7 @@ image::architecture-overview.png[Architecture Overview, align="center"]
 
 === Developer Track
 * A personal Git repository — provisioned in seconds via the *Git server*, no GitHub account needed
-* A complete *Fortune Cookie application* generated live by OpenCode + Qwen3.6: Go binary, web UI, Kustomize manifests
+* A complete *Fortune Cookie application* generated live by OpenCode + Qwen3.8: Go binary, web UI, Kustomize manifests
 * The app built and deployed automatically via *OpenShift Pipelines* and *Argo CD*
 * Platform compliance validated — and auto-fixed — by the same LLM that wrote the code
 
@@ -42,7 +42,7 @@ image::architecture-overview.png[Architecture Overview, align="center"]
 After completing this workshop, you will understand:
 
 * How ROSA's managed machine pools give you on-demand GPU capacity without EC2 complexity
-* How OpenShift AI (KServe + vLLM) provides a scalable, OpenAI-compatible LLM API on your own cluster
+* How OpenShift AI (dashboard + `LLMInferenceService` + Models-as-a-Service) provides a governed, OpenAI-compatible LLM API on your own cluster
 * How `AGENTS.md` shifts platform governance from documentation to code
 * How OpenShift Dev Spaces + OpenCode creates an AI-augmented developer experience that requires no local setup
 * How OpenShift Pipelines and Argo CD form a complete GitOps delivery pipeline from a single repository
@@ -73,7 +73,7 @@ After completing this workshop, you will understand:
 | 15 min
 
 | 1.4
-| Deploy LLM as a Service (Qwen3.6)
+| Deploy Qwen3.8 as Models-as-a-Service
 | 10 min active / ~15 min background
 
 | 1.5

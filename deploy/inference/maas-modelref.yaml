@@ -1,0 +1,14 @@
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: qwen3
+  namespace: llm-serving
+  annotations:
+    openshift.io/display-name: Qwen3.8
+    openshift.io/description: Red Hat AI Qwen3.8-27B-INT4 served with Red Hat vLLM CUDA
+    opendatahub.io/genai-use-case: chat
+    opendatahub.io/context-window: "40960"
+spec:
+  modelRef:
+    kind: LLMInferenceService
+    name: qwen3

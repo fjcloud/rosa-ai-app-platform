@@ -23,3 +23,15 @@ resources:
   - pipelines-subscription.yaml
   # Bundled Tekton catalog tasks (git-clone, buildah) for developer pipelines
   - tekton-tasks.yaml
+  # cert-manager (required by LeaderWorkerSet and Connectivity Link TLS)
+  - cert-manager-namespace.yaml
+  - cert-manager-operatorgroup.yaml
+  - cert-manager-subscription.yaml
+  # LeaderWorkerSet API (required by llm-d / LLMInferenceService)
+  - lws-namespace.yaml
+  - lws-operatorgroup.yaml
+  - lws-subscription.yaml
+  # Red Hat Connectivity Link (Kuadrant + Authorino + Limitador for MaaS)
+  - rhcl-namespace.yaml
+  - rhcl-operatorgroup.yaml
+  - rhcl-subscription.yaml

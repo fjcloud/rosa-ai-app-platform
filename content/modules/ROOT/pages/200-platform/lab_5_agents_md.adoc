@@ -3,7 +3,7 @@
 The template repository is already initialized and published on GitHub at
 https://github.com/fjcloud/go-app-template[fjcloud/go-app-template].
 Your role as Platform Engineer is to understand what it contains, why each file is there,
-and how to adapt the key parameters to your cluster before sharing the launch URL with developers.
+and how to adapt `GIT_SERVER` in the template before sharing the launch URL with developers.
 
 [NOTE]
 ====
@@ -26,8 +26,7 @@ You should see:
 [source,console]
 ----
 AGENTS.md          ← platform conventions read by OpenCode
-opencode.json      ← LLM configuration (model, URL, timeouts)
-devfile.yaml       ← workspace definition (tooling + one-click tasks)
+devfile.yaml       ← workspace definition (gitpop + Ansible + one-click tasks)
 deploy/base/       ← Kustomize: Deployment, Service, Route
 pipeline/base/     ← Kustomize: Tekton Pipeline + PVC
 gitops/base/       ← Kustomize: developer-owned ArgoCD instance
@@ -152,34 +151,35 @@ cat deploy/base/deployment.yaml
 The `deploy/base/deployment.yaml` uses `image: placeholder` — the `gitops-deploy.yml` playbook
 replaces that value with the actual image pushed by Tekton before Argo CD syncs.
 
-== Step 4: Adapt opencode.json for your cluster
+== Step 4: Verify the in-cluster LLM is registered in Dev Spaces
 
-The `opencode.json` points at the in-cluster LLM service.
-Update the `baseURL` to match your cluster's inference endpoint:
-
-[source,sh,role=execute]
-----
-cat opencode.json
-----
-
-The relevant field:
-
-[source,json]
-----
-"baseURL": "http://qwen3-predictor.llm-serving.svc.cluster.local:8080/v1"
-----
-
-If your `InferenceService` or namespace name differs, update this value and push:
+OpenCode is **not** installed from the template. Dev Spaces 3.29 injects it from the AI tool registry applied with `deploy/instances` in Lab 1.4. The same apply mounted `opencode.json` so every workspace talks to Qwen3.8.
 
 [source,sh,role=execute]
 ----
-# Get the actual service hostname
-oc get inferenceservice -n llm-serving
+CHE_NS=$(oc get checluster -A -o jsonpath='{.items[0].metadata.namespace}')
 
-# If it matches the default, no change needed. Otherwise:
-# sed -i 's|qwen3-predictor|<your-service-name>|g' opencode.json
-# git add opencode.json && git commit -m "fix: update LLM endpoint" && git push
+echo "CheCluster namespace: $CHE_NS"
+
+oc get configmap ai-tool-registry -n "$CHE_NS" \
+  -o jsonpath='{.data.registry\.json}' | python3 -m json.tool
+
+oc get configmap opencode-workspace-config -n "$CHE_NS" \
+  -o jsonpath='{.data.opencode\.json}' | python3 -m json.tool
 ----
+
+You should see:
+
+* Provider `opencodeai/opencode` with injector `quay.io/che-incubator/dashboard-ai/opencode:next`
+* `defaultAiProviders` set so the dashboard AI Selector is pre-checked
+* `baseURL` pointing at `https://maas.<apps-domain>/llm-serving/qwen3/v1`
+* Provider and model **name** `Qwen3.8` (the API model id stays `qwen3` — that is what vLLM serves)
+* `limit.output: 8192` so OpenCode does not request 32 000 tokens against `--max-model-len=40960`
+
+[NOTE]
+====
+The AI provider feature is a Dev Spaces *Technology Preview*. The dashboard shows an **AI Provider** section on Create Workspace when `ai-tool-registry` exists. Developers do not paste an API key — Secret `ai-provider-openai-api-key` injects the MaaS `sk-oai-` key as `OPENAI_API_KEY`.
+====
 
 == Step 5: Adapt devfile.yaml — set your GIT_SERVER
 
@@ -215,8 +215,8 @@ Commit and push the change to your fork:
 
 [source,sh,role=execute]
 ----
-git add devfile.yaml opencode.json
-git commit -m "fix: adapt endpoints for workshop cluster"
+git add devfile.yaml
+git commit -m "fix: adapt GIT_SERVER for workshop cluster"
 git push
 ----
 
@@ -232,22 +232,22 @@ Construct it from your Dev Spaces instance and the template repository:
 
 [source,sh,role=execute]
 ----
-DEVSPACES_URL=$(oc get checluster devspaces -n openshift-devspaces \
-  -o jsonpath='{.status.cheURL}')
+DEVSPACES_URL=$(oc get checluster -A -o jsonpath='{.items[0].status.cheURL}')
 
 TEMPLATE_URL="https://github.com/fjcloud/go-app-template"
 
 echo "============================================"
 echo " Participant workspace URL:"
-echo "  $DEVSPACES_URL/#$TEMPLATE_URL"
+echo "  $DEVSPACES_URL/#$TEMPLATE_URL?ai-provider=opencodeai/opencode"
 echo "============================================"
 ----
 
 When a developer opens that URL, Dev Spaces:
 
 1. Clones the template repository
-2. Starts the `bootstrap` command — installs OpenCode, gitpop, and Ansible
-3. Opens a VS Code workspace with the three deploy tasks visible in the sidebar (rocket icon)
+2. Injects OpenCode from the AI tool registry (init container) and mounts `opencode.json` (Qwen3.8)
+3. Runs `bootstrap` for gitpop and Ansible only
+4. Opens a VS Code workspace with the three deploy tasks visible in the sidebar (rocket icon)
 
 [TIP]
 ====
@@ -260,9 +260,15 @@ The *Tasks panel* in DevSpaces (sidebar → rocket icon) shows all `commands` fr
 OpenCode generates the app. The developer triggers the tasks in order to ship it.
 ====
 
+[IMPORTANT]
+====
+Workspaces created *before* the AI registry existed do not include the OpenCode injector.
+Create a *new* workspace from the URL above — restarting an old workspace is not enough.
+====
+
 image::cicd-gitops.png[GitOps Delivery Pipeline, align="center"]
 
-== Module 200 Complete
+== Module 1 Complete
 
 As the Platform Engineer, you have deployed and configured the full developer platform:
 
@@ -273,17 +279,17 @@ As the Platform Engineer, you have deployed and configured the full developer pl
 | GPU Machine Pool (fixed, 1 node)
 | ✅ Provisioned in ROSA
 
-| OpenShift AI + NVIDIA GPU Operator + NFD + Dev Spaces
-| ✅ All operators running
+| OpenShift AI + NVIDIA GPU Operator + NFD + Dev Spaces + Connectivity Link
+| ✅ Operators running; dashboard at `https://rh-ai.apps.<apps-domain>/`
 
 | OpenShift GitOps (Argo CD) + OpenShift Pipelines (Tekton)
-| ✅ Installed via gitops-catalog
+| ✅ Installed cluster-wide
 
-| Qwen3.6 InferenceService
-| ✅ Ready, OpenAI-compatible API available in-cluster
+| Qwen3.8 Models-as-a-Service + Dev Spaces AI provider
+| ✅ Ready; OpenCode pointed at the MaaS gateway with a `sk-oai-` key
 
 | Go app template
 | ✅ Explored and adapted; developer DevSpaces URL ready to share
 |===
 
-Switch persona — move on to *Module 300: Developer Experience*.
+Switch persona — move on to *Module 2: Developer Experience*.

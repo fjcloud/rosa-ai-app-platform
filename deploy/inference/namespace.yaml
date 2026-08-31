@@ -5,3 +5,4 @@ metadata:
   labels:
     opendatahub.io/dashboard: "true"
     modelmesh-enabled: "false"
+    maas.opendatahub.io/gateway-access: "true"

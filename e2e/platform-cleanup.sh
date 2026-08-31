@@ -34,19 +34,18 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 1 — LLM InferenceService & namespace
 # ─────────────────────────────────────────────────────────────────────────────
-step "Phase 1: LLM InferenceService"
+step "Phase 1: LLMInferenceService"
 
-# Delete LLM smoke test pod if left behind
 oc delete pod llm-smoke-test -n "$LLM_NS" --ignore-not-found &>/dev/null || true
 
-if oc get inferenceservice "$LLM_IS" -n "$LLM_NS" &>/dev/null; then
-  oc delete inferenceservice "$LLM_IS" -n "$LLM_NS" --ignore-not-found
-  ok "InferenceService $LLM_IS deleted"
+if oc get llminferenceservice "$LLM_IS" -n "$LLM_NS" &>/dev/null; then
+  oc delete llminferenceservice "$LLM_IS" -n "$LLM_NS" --ignore-not-found
+  ok "LLMInferenceService $LLM_IS deleted"
 fi
 
-if oc get servingruntime vllm-runtime -n "$LLM_NS" &>/dev/null; then
-  oc delete servingruntime vllm-runtime -n "$LLM_NS" --ignore-not-found
-  ok "ServingRuntime vllm-runtime deleted"
+if oc get maasmodelref "$LLM_IS" -n "$LLM_NS" &>/dev/null; then
+  oc delete maasmodelref "$LLM_IS" -n "$LLM_NS" --ignore-not-found
+  ok "MaaSModelRef $LLM_IS deleted"
 fi
 
 # Delete PVC separately first to avoid stuck namespace (PVC may have finalizers)

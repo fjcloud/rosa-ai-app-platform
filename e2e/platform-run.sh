@@ -6,7 +6,7 @@
 #   Phase 1 — GPU Machine Pool       (lab_1_gpu_machinepool)
 #   Phase 2 — Cluster Operators      (lab_2_operators)
 #   Phase 3 — Platform Instances     (lab_4_llm_service Step 1)
-#   Phase 4 — LLM InferenceService   (lab_4_llm_service Step 2)
+#   Phase 4 — LLMInferenceService + MaaS (lab_4_llm_service Steps 2–3)
 #   Phase 5 — Developer Template     (lab_5_agents_md)
 #
 # Prerequisites:
@@ -20,7 +20,7 @@ TEMPLATE_URL="${TEMPLATE_URL:-https://github.com/fjcloud/go-app-template}"
 GPU_INSTANCE_TYPE="${GPU_INSTANCE_TYPE:-g6e.xlarge}"
 LLM_NS="${LLM_NS:-llm-serving}"
 LLM_IS="${LLM_IS:-qwen3}"
-LLM_URL_INTERNAL="http://${LLM_IS}-predictor.${LLM_NS}.svc.cluster.local:8080/v1"
+MAAS_HOST="${MAAS_HOST:-}"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -49,7 +49,8 @@ csv_succeeded() {
   local pattern=$1
   for ns in redhat-ods-operator nvidia-gpu-operator openshift-nfd \
              openshift-operators openshift-gitops-operator openshift-pipelines \
-             openshift-gitops; do
+             openshift-gitops cert-manager-operator openshift-lws-operator \
+             kuadrant-system cert-manager; do
     if oc get csv -n "$ns" --no-headers 2>/dev/null \
         | grep -i "$pattern" | grep -q "Succeeded"; then
       return 0
@@ -72,6 +73,8 @@ info "Template: $TEMPLATE_URL"
 
 oc cluster-info &>/dev/null || fail "Not connected to a cluster"
 ok "Cluster reachable"
+MAAS_HOST="${MAAS_HOST:-maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')}"
+LLM_URL_MAAS="https://${MAAS_HOST}/llm-serving/${LLM_IS}/v1"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 1 — GPU Machine Pool (lab_1_gpu_machinepool)
@@ -140,6 +143,13 @@ check "OpenShift GitOps operator Succeeded" \
 check "OpenShift Pipelines operator Succeeded" \
   "csv_succeeded openshift-pipelines-operator"
 
+check "Red Hat Connectivity Link operator Succeeded" \
+  "csv_succeeded rhcl-operator"
+check "cert-manager operator Succeeded" \
+  "csv_succeeded cert-manager-operator"
+check "Leader Worker Set operator Succeeded" \
+  "csv_succeeded leader-worker-set"
+
 step "Phase 2b: Operator deployments Available"
 
 check "Dev Spaces operator deployment Available" \
@@ -175,11 +185,11 @@ check "git-clone Task installed in openshift-pipelines" \
 # ─────────────────────────────────────────────────────────────────────────────
 step "Phase 3: Platform Instances"
 
-# DataScienceCluster — check KServe-specific conditions (Dashboard may be Removed on ROSA HCP)
+# DataScienceCluster — KServe, MaaS, dashboard / OGX
 check "DataScienceCluster default-dsc exists" \
   "oc get datasciencecluster default-dsc"
 
-for component in KserveReady ModelControllerReady; do
+for component in KserveReady ModelsAsAServiceReady AIGatewayReady DashboardReady OGXReady; do
   COND=$(oc get datasciencecluster default-dsc \
     -o jsonpath="{.status.conditions[?(@.type==\"${component}\")].status}" 2>/dev/null || echo "")
   if [[ "$COND" == "True" ]]; then
@@ -205,6 +215,24 @@ DEVSPACES_URL=$(oc get checluster devspaces -n openshift-operators \
 [[ -n "$DEVSPACES_URL" ]] && ok "Dev Spaces URL available: $DEVSPACES_URL" \
   || { warn "Dev Spaces URL not yet available"; FAILURES=$((FAILURES+1)); }
 
+# Dev Spaces AI tool registry + Qwen3.8 OpenCode config (lab_4 / lab_5)
+check "AI tool registry ConfigMap exists" \
+  "oc get configmap ai-tool-registry -n openshift-operators"
+check "AI registry includes OpenCode injector" \
+  "oc get configmap ai-tool-registry -n openshift-operators -o jsonpath='{.data.registry\.json}' | grep -q 'opencodeai/opencode'"
+check "OpenCode workspace config ConfigMap exists" \
+  "oc get configmap opencode-workspace-config -n openshift-operators"
+check "OpenCode config points at MaaS gateway" \
+  "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | grep -q 'maas.apps'"
+check "OpenCode MaaS API key Secret exists" \
+  "oc get secret ai-provider-openai-api-key -n openshift-operators"
+check "VS Code editor config disables GitHub Copilot" \
+  "oc get configmap vscode-editor-configurations -n openshift-operators -o jsonpath='{.data.settings\.json}' | grep -q 'chat.disableAIFeatures'"
+check "Continue is a recommended VS Code extension" \
+  "oc get configmap vscode-editor-configurations -n openshift-operators -o jsonpath='{.data.extensions\.json}' | grep -q 'Continue.continue'"
+check "Continue config points at MaaS gateway" \
+  "oc get configmap continue-workspace-config -n openshift-operators -o jsonpath='{.data.config\.yaml}' | grep -q 'maas.apps'"
+
 # NFD NodeFeatureDiscovery
 check "NodeFeatureDiscovery nfd-instance exists" \
   "oc get nodefeaturediscovery nfd-instance -n openshift-nfd"
@@ -223,73 +251,79 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 4 — LLM InferenceService (lab_4_llm_service Step 2)
+# PHASE 4 — LLMInferenceService + Models-as-a-Service
 # ─────────────────────────────────────────────────────────────────────────────
-step "Phase 4: LLM InferenceService"
+step "Phase 4: LLMInferenceService + MaaS"
 
 check "llm-serving namespace exists" \
   "oc get namespace $LLM_NS"
 
-check "ServingRuntime vllm-runtime exists" \
-  "oc get servingruntime vllm-runtime -n $LLM_NS"
-
-check "InferenceService $LLM_IS exists" \
-  "oc get inferenceservice $LLM_IS -n $LLM_NS"
+check "LLMInferenceService $LLM_IS exists" \
+  "oc get llminferenceservice $LLM_IS -n $LLM_NS"
 
 check "Model cache PVC qwen-model-cache exists" \
   "oc get pvc qwen-model-cache -n $LLM_NS"
 
-LLM_READY=$(oc get inferenceservice "$LLM_IS" -n "$LLM_NS" \
+check "MaaSModelRef $LLM_IS Ready" \
+  "oc get maasmodelref $LLM_IS -n $LLM_NS -o jsonpath='{.status.phase}' | grep -q Ready"
+
+check "MaaSAuthPolicy qwen3-access Active" \
+  "oc get maasauthpolicy qwen3-access -n models-as-a-service -o jsonpath='{.status.phase}' | grep -q Active"
+
+check "MaaSSubscription qwen3-workshop Active" \
+  "oc get maassubscription qwen3-workshop -n models-as-a-service -o jsonpath='{.status.phase}' | grep -q Active"
+
+check "Gateway maas-default-gateway Programmed" \
+  "oc get gateway maas-default-gateway -n openshift-ingress -o jsonpath='{.status.conditions[?(@.type==\"Programmed\")].status}' | grep -q True"
+
+LLM_READY=$(oc get llminferenceservice "$LLM_IS" -n "$LLM_NS" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
 if [[ "$LLM_READY" == "True" ]]; then
-  ok "InferenceService $LLM_IS — Ready"
+  ok "LLMInferenceService $LLM_IS — Ready"
 else
-  warn "FAIL: InferenceService $LLM_IS not Ready (status: ${LLM_READY:-unknown})"
+  warn "FAIL: LLMInferenceService $LLM_IS not Ready (status: ${LLM_READY:-unknown})"
   FAILURES=$((FAILURES + 1))
 fi
 
 LLM_PODS=$(oc get pod -n "$LLM_NS" \
-  -l "serving.kserve.io/inferenceservice=${LLM_IS}" \
+  -l app.kubernetes.io/name="${LLM_IS}" \
   --field-selector=status.phase=Running \
   --no-headers 2>/dev/null | wc -l || echo 0)
+if [[ "$LLM_PODS" -lt 1 ]]; then
+  LLM_PODS=$(oc get pod -n "$LLM_NS" --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -c kserve || echo 0)
+fi
 if [[ "$LLM_PODS" -ge 1 ]]; then
-  ok "LLM predictor pod running ($LLM_PODS pod(s))"
+  ok "LLM serving pod running ($LLM_PODS pod(s))"
 else
-  warn "FAIL: No running LLM predictor pod in $LLM_NS"
+  warn "FAIL: No running LLM serving pod in $LLM_NS"
   FAILURES=$((FAILURES + 1))
 fi
 
-step "Phase 4b: LLM API smoke test (in-cluster)"
+step "Phase 4b: MaaS API smoke test"
 
-# Run a short-lived pod in llm-serving to test the endpoint
-info "Launching smoke-test pod in $LLM_NS..."
-oc delete pod llm-smoke-test -n "$LLM_NS" --ignore-not-found &>/dev/null || true
+MAAS_KEY=$(oc get secret ai-provider-openai-api-key -n openshift-operators \
+  -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null | base64 -d || true)
+if [[ -z "${MAAS_KEY}" || "${MAAS_KEY}" != sk-oai-* ]]; then
+  info "Minting workshop MaaS API key..."
+  bash "$(dirname "$0")/../deploy/inference/mint-workshop-key.sh" || true
+  MAAS_KEY=$(oc get secret ai-provider-openai-api-key -n openshift-operators \
+    -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null | base64 -d || true)
+fi
 
-oc run llm-smoke-test \
-  --image=registry.access.redhat.com/ubi9/python-39:latest \
-  --restart=Never \
-  --namespace="$LLM_NS" \
-  -- sleep 60 &>/dev/null
-
-oc wait pod/llm-smoke-test -n "$LLM_NS" --for=condition=Ready --timeout=60s &>/dev/null || true
-
-LLM_RESP=$(oc exec llm-smoke-test -n "$LLM_NS" -- bash -c "
-  curl -sf '${LLM_URL_INTERNAL}/chat/completions' \
-    -H 'Content-Type: application/json' \
-    -d '{
-      \"model\": \"${LLM_IS}\",
-      \"messages\": [{\"role\": \"user\", \"content\": \"Reply with exactly: PLATFORM_OK\"}],
-      \"max_tokens\": 20,
-      \"chat_template_kwargs\": {\"enable_thinking\": false}
-    }' | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d['choices'][0]['message']['content'])\"
-" 2>/dev/null || echo "")
-
-oc delete pod llm-smoke-test -n "$LLM_NS" --ignore-not-found &>/dev/null || true
+LLM_RESP=$(curl -sS --max-time 120 "${LLM_URL_MAAS}/chat/completions" \
+  -H "Authorization: Bearer ${MAAS_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"model\": \"${LLM_IS}\",
+    \"messages\": [{\"role\": \"user\", \"content\": \"Reply with exactly: PLATFORM_OK\"}],
+    \"max_tokens\": 20,
+    \"chat_template_kwargs\": {\"enable_thinking\": false}
+  }" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['choices'][0]['message']['content'])" 2>/dev/null || echo "")
 
 if echo "$LLM_RESP" | grep -q "PLATFORM_OK"; then
-  ok "LLM API smoke test passed: $LLM_RESP"
+  ok "MaaS API smoke test passed: $LLM_RESP"
 else
-  warn "FAIL: LLM did not return expected response (got: '${LLM_RESP}')"
+  warn "FAIL: MaaS did not return expected response (got: '${LLM_RESP}')"
   FAILURES=$((FAILURES + 1))
 fi
 
@@ -321,7 +355,6 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
   step "Phase 5a: Template file structure"
   for f in \
     "AGENTS.md" \
-    "opencode.json" \
     "devfile.yaml" \
     "README.md" \
     "deploy/base/deployment.yaml" \
@@ -349,16 +382,18 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
       "grep -q '$pattern' '$REPO/AGENTS.md'"
   done
 
-  step "Phase 5c: opencode.json"
-  check "opencode.json is valid JSON" \
-    "python3 -c \"import json; json.load(open('$REPO/opencode.json'))\""
-  check "opencode.json references an LLM baseURL (svc.cluster.local)" \
-    "grep -q 'svc.cluster.local' '$REPO/opencode.json'"
-  check "opencode.json has autoupdate disabled" \
-    "python3 -c \"import json; d=json.load(open('$REPO/opencode.json')); assert d.get('autoupdate')==False\""
+  step "Phase 5c: OpenCode config is platform-injected (not in the Git template)"
+  check "opencode-workspace-config is valid JSON" \
+    "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; json.load(sys.stdin)\""
+  check "opencode-workspace-config has autoupdate disabled" \
+    "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('autoupdate')==False\""
+  check "OpenCode config names the model Qwen3.8" \
+    "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['provider']['qwen3']['name']=='Qwen3.8'; assert d['provider']['qwen3']['models']['qwen3']['name']=='Qwen3.8'\""
+  check "opencode-workspace-config caps output tokens" \
+    "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['provider']['qwen3']['models']['qwen3']['limit']['output']==8192\""
 
   step "Phase 5d: devfile.yaml"
-  for pattern in "GIT_SERVER" "opencode" "gitpop" "git-push" "build-image" "gitops-deploy"; do
+  for pattern in "GIT_SERVER" "gitpop" "git-push" "build-image" "gitops-deploy"; do
     check "devfile.yaml contains '$pattern'" \
       "grep -q '$pattern' '$REPO/devfile.yaml'"
   done
@@ -394,7 +429,7 @@ check "gitpop binary download endpoint is reachable" \
 
 step "Phase 5j: DevSpaces developer launch URL"
 if [[ -n "${DEVSPACES_URL:-}" ]]; then
-  LAUNCH_URL="${DEVSPACES_URL}/#${TEMPLATE_URL}"
+  LAUNCH_URL="${DEVSPACES_URL}/#${TEMPLATE_URL}?ai-provider=opencodeai/opencode"
   ok "Developer launch URL constructed:"
   info "$LAUNCH_URL"
 else
@@ -408,12 +443,12 @@ step "Summary"
 echo ""
 echo -e "  Cluster        : ${CYAN}$(oc whoami --show-server)${NC}"
 echo -e "  GPU node(s)    : ${CYAN}${GPU_NODES:-<none found>}${NC}"
-echo -e "  LLM endpoint   : ${CYAN}${LLM_URL_INTERNAL}${NC}"
+echo -e "  LLM endpoint   : ${CYAN}${LLM_URL_MAAS}${NC}"
 echo -e "  Dev Spaces URL : ${CYAN}${DEVSPACES_URL:-<not ready>}${NC}"
 echo -e "  Template repo  : ${CYAN}${TEMPLATE_URL}${NC}"
 echo -e "  Git server     : ${CYAN}${GIT_SERVER}${NC}"
 if [[ -n "${DEVSPACES_URL:-}" ]]; then
-  echo -e "  Developer URL  : ${CYAN}${DEVSPACES_URL}/#${TEMPLATE_URL}${NC}"
+  echo -e "  Developer URL  : ${CYAN}${DEVSPACES_URL}/#${TEMPLATE_URL}?ai-provider=opencodeai/opencode${NC}"
 fi
 echo ""
 

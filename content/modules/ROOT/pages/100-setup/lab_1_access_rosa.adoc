@@ -146,4 +146,4 @@ You now have:
 * [x] Admin access to the OpenShift Web Console
 * [x] A clear picture of what you are building
 
-➡️ Move on to *Module 200: Deploy LLM as a Service & Developer Platform*
+➡️ Move on to *Module 1 — Platform Engineer* (Lab 1.1).
