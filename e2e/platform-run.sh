@@ -5,9 +5,9 @@
 # Validates the full Platform Engineer workshop flow:
 #   Phase 1 — GPU Machine Pool       (lab_1_gpu_machinepool)
 #   Phase 2 — Cluster Operators      (lab_2_operators)
-#   Phase 3 — Platform Instances     (lab_4_llm_service Step 1)
-#   Phase 4 — LLMInferenceService + MaaS (lab_4_llm_service Steps 2–3)
-#   Phase 5 — Developer Template     (lab_5_agents_md)
+#   Phase 3 — Platform Instances     (lab 1.3 Step 1)
+#   Phase 4 — LLMInferenceService + MaaS (lab 1.3 Steps 2–3)
+#   Phase 5 — Developer Template     (lab 1.4)
 #
 # Prerequisites:
 #   - oc is logged in with cluster-admin
@@ -181,7 +181,7 @@ check "git-clone Task installed in openshift-pipelines" \
   "oc get task git-clone -n openshift-pipelines"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 3 — Platform Instances (lab_4_llm_service Step 1)
+# PHASE 3 — Platform Instances (lab 1.3 Step 1)
 # ─────────────────────────────────────────────────────────────────────────────
 step "Phase 3: Platform Instances"
 
@@ -328,7 +328,7 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 5 — Developer Template (lab_5_agents_md)
+# PHASE 5 — Developer Template (lab 1.4)
 # ─────────────────────────────────────────────────────────────────────────────
 step "Phase 5: Developer Template Repository"
 
@@ -364,10 +364,7 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
     "pipeline/base/pipeline.yaml" \
     "pipeline/base/kustomization.yaml" \
     "gitops/base/argocd.yaml" \
-    "gitops/base/kustomization.yaml" \
-    "scripts/git-push.yml" \
-    "scripts/build-image.yml" \
-    "scripts/gitops-deploy.yml"; do
+    "gitops/base/kustomization.yaml"; do
     if [[ -f "$REPO/$f" ]]; then
       ok "Template contains $f"
     else
@@ -377,7 +374,7 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
   done
 
   step "Phase 5b: AGENTS.md content"
-  for pattern in "main.go" "Dockerfile" "ubi9/go-toolset" "ansible-playbook" "GIT_SERVER"; do
+  for pattern in "main.go" "Dockerfile" "ubi9/go-toolset" "gitpop" "oc apply"; do
     check "AGENTS.md mentions '$pattern'" \
       "grep -q '$pattern' '$REPO/AGENTS.md'"
   done
@@ -393,18 +390,20 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
     "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['provider']['qwen3']['models']['qwen3']['limit']['output']==8192\""
 
   step "Phase 5d: devfile.yaml"
-  for pattern in "GIT_SERVER" "gitpop" "git-push" "build-image" "gitops-deploy"; do
+  for pattern in "GIT_SERVER" "gitpop"; do
     check "devfile.yaml contains '$pattern'" \
       "grep -q '$pattern' '$REPO/devfile.yaml'"
   done
 
-  step "Phase 5e: Ansible playbooks"
-  check "git-push.yml has 'Create repository on Git server'" \
-    "grep -q 'Create repository on Git server' '$REPO/scripts/git-push.yml'"
-  check "build-image.yml has 'Apply Tekton Pipeline'" \
-    "grep -q 'Apply Tekton Pipeline' '$REPO/scripts/build-image.yml'"
-  check "gitops-deploy.yml has 'Deploy developer-owned Argo CD'" \
-    "grep -q 'Deploy developer-owned Argo CD' '$REPO/scripts/gitops-deploy.yml'"
+  step "Phase 5e: AGENTS.md is the deploy runbook (no Ansible)"
+  check "AGENTS.md has gitpop init" \
+    "grep -q 'gitpop init' '$REPO/AGENTS.md'"
+  check "AGENTS.md has oc apply -k pipeline" \
+    "grep -q 'oc apply -k pipeline/base' '$REPO/AGENTS.md'"
+  check "AGENTS.md has oc apply -k gitops" \
+    "grep -q 'oc apply -k gitops/base' '$REPO/AGENTS.md'"
+  check "Template has no Ansible scripts/" \
+    "test ! -d '$REPO/scripts'"
 
   step "Phase 5f: Tekton pipeline manifest"
   check "pipeline.yaml references buildah" \
@@ -417,7 +416,7 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
     "grep -q 'kind: ArgoCD' '$REPO/gitops/base/argocd.yaml'"
 
   step "Phase 5h: deployment.yaml uses placeholder image"
-  check "deployment.yaml uses 'placeholder' image (updated at runtime by gitops-deploy.yml)" \
+  check "deployment.yaml uses 'placeholder' image (updated at deploy time per AGENTS.md)" \
     "grep -q 'placeholder' '$REPO/deploy/base/deployment.yaml'"
 fi
 

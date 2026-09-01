@@ -1,239 +1,95 @@
-= Lab 1.5 — Explore the Developer Template
+= Lab 1.4 — Hand the Keys
 
-The template repository is already initialized and published on GitHub at
-https://github.com/fjcloud/go-app-template[fjcloud/go-app-template].
-Your role as Platform Engineer is to understand what it contains, why each file is there,
-and how to adapt `GIT_SERVER` in the template before sharing the launch URL with developers.
+The GPU is warming Qwen3.8. Your job now is to hand the afternoon developer a *launch URL* and a 43-line runbook — not a wiki, not Ansible, not a tour of every Kustomize file.
+
+The template is already on GitHub: https://github.com/fjcloud/go-app-template[fjcloud/go-app-template].
 
 [NOTE]
 ====
-*Estimated time:* 15 minutes +
+*Estimated time:* 10 minutes +
 *Persona:* Platform Engineer +
-*Deliverable:* Understanding of the template + participant DevSpaces URL ready to share
+*Deliverable:* You have read `AGENTS.md`. You can paste the Dev Spaces URL to Act 2.
 ====
 
-== What is in the template?
+== What the developer actually gets
 
-[source,sh,role=execute]
-----
-git clone https://github.com/fjcloud/go-app-template
-cd go-app-template
-ls -la
-----
+[cols="1,2", options="header"]
+|===
+| Path | Why it exists
 
-You should see:
+| `AGENTS.md`
+| The only runbook OpenCode reads. Generate `main.go` / `go.mod` / `Dockerfile`, then `git` / `gitpop` / `oc`.
 
-[source,console]
-----
-AGENTS.md          ← platform conventions read by OpenCode
-devfile.yaml       ← workspace definition (gitpop + Ansible + one-click tasks)
-deploy/base/       ← Kustomize: Deployment, Service, Route
-pipeline/base/     ← Kustomize: Tekton Pipeline + PVC
-gitops/base/       ← Kustomize: developer-owned ArgoCD instance
-scripts/
-  git-push.yml     ← Ansible: push code to personal Git repo
-  build-image.yml  ← Ansible: Tekton PipelineRun (git-clone + buildah)
-  gitops-deploy.yml← Ansible: ArgoCD instance + Application sync
-----
+| `devfile.yaml`
+| Dev Spaces workspace. Installs gitpop. OpenCode is *not* in the template — the platform injects it.
 
-The key boundary:
+| `deploy/` `pipeline/` `gitops/`
+| Golden-path Kustomize. The model applies it; it must not rewrite it (except the Deployment `image:` at deploy time).
+|===
 
-* OpenCode generates *code* (`main.go`, `go.mod`, `Dockerfile`) guided by `AGENTS.md`
-* The Ansible playbooks handle all *platform operations* — each task is named and readable
-* Kustomize manifests are applied by the playbooks via `oc apply -k`
+There is no `scripts/` directory and no Ansible. Qwen3.8 follows `AGENTS.md`.
 
 == Step 1: Read AGENTS.md
 
-`AGENTS.md` is the file OpenCode reads before *every* session. It defines what the LLM
-must generate, what already exists, and how to trigger the deploy pipeline.
+Clone only if you want it on disk. On a shared workshop cluster you can also open the file on GitHub. Either way, *read it* — it is short.
 
 [source,sh,role=execute]
 ----
+git clone --depth 1 https://github.com/fjcloud/go-app-template
+cd go-app-template
+wc -l AGENTS.md
 cat AGENTS.md
 ----
 
-Read through it carefully. Notice:
+You should see about 43 lines. Notice:
 
 * *Files YOU must generate* — `main.go`, `go.mod`, `Dockerfile` with an exact two-stage template
-* *Files already in the repository* — the LLM must NOT touch `deploy/`, `pipeline/`, `gitops/`, `scripts/`
-* *Build verification* — the LLM compiles the binary before calling any playbook
-* *Deploy workflow* — three `ansible-playbook` calls, in order, with named tasks
+* *Files already in the repository* — do not rewrite `deploy/`, `pipeline/`, `gitops/`, or `devfile.yaml`
+* *Three deploy phases* — Git server → Tekton PipelineRun → Argo CD Application
 
-[TIP]
-====
-The Dockerfile template in `AGENTS.md` uses `WORKDIR /tmp/build` and `-buildvcs=false`. These are
-not arbitrary choices — they work around specific constraints of the `ubi9/go-toolset` image and
-Tekton's git-clone workspace. If you adapt this template for another language, apply the same level
-of precision.
-====
+[cols="1,2,2", options="header"]
+|===
+| Phase | What it does | Typical duration
 
-== Step 2: Understand the Ansible playbooks
+| 1. Git
+| `gitpop init` + commit + push to the personal Git server
+| ~30s
 
-Open each playbook and read the task names — they read like a runbook:
+| 2. Image
+| `oc apply -k pipeline/base` and a Tekton `PipelineRun` (git-clone + buildah)
+| 3–5 min
 
-[source,sh,role=execute]
-----
-cat scripts/git-push.yml
-----
+| 3. GitOps
+| Point `image:` at the built image, `oc apply -k gitops/base`, create the Argo CD `Application`
+| 2–3 min
+|===
 
-[source,yaml]
-----
-tasks:
-  - name: Remove existing origin remote
-  - name: Create repository on Git server
-  - name: Configure git identity
-  - name: Stage all files
-  - name: Commit if there are staged changes
-  - name: Push to Git server
-  - name: Get repository URL
-  - name: Print result
-----
+image::cicd-gitops.png[Prompt to production, align="center"]
 
-[source,sh,role=execute]
-----
-cat scripts/build-image.yml
-----
+== Step 2: Confirm OpenCode is wired to MaaS
 
-[source,yaml]
-----
-tasks:
-  - name: Get repository URL
-  - name: Create build project
-  - name: Grant pipeline service account registry-editor role
-  - name: Apply Tekton Pipeline and workspace PVC
-  - name: Trigger PipelineRun
-  - name: Wait for PipelineRun to succeed (up to 15 min)
-  - name: Assert PipelineRun succeeded
-  - name: Print built image reference
-----
-
-[source,sh,role=execute]
-----
-cat scripts/gitops-deploy.yml
-----
-
-[source,yaml]
-----
-tasks:
-  - name: Get repository URL
-  - name: Create dev project
-  - name: Allow dev namespace to pull images from build namespace
-  - name: Update image reference in deployment manifest
-  - name: Commit and push updated manifest
-  - name: Deploy developer-owned Argo CD instance
-  - name: Wait for Argo CD instance to become Available
-  - name: Create Argo CD Application
-  - name: Wait for application to sync and become Healthy
-  - name: Show application URLs
-----
-
-[NOTE]
-====
-The Argo CD instance in `gitops/base/argocd.yaml` belongs to the *developer*, not the platform.
-The `openshift-gitops-operator` (installed in the previous lab) allows any user to create an
-`ArgoCD` CR in their own namespace — no cluster-admin access required.
-====
-
-== Step 3: Inspect the Kustomize manifests
-
-[source,sh,role=execute]
-----
-# Tekton build pipeline
-cat pipeline/base/pipeline.yaml
-
-# ArgoCD instance
-cat gitops/base/argocd.yaml
-
-# Application placeholder (image: updated by gitops-deploy.yml at runtime)
-cat deploy/base/deployment.yaml
-----
-
-The `deploy/base/deployment.yaml` uses `image: placeholder` — the `gitops-deploy.yml` playbook
-replaces that value with the actual image pushed by Tekton before Argo CD syncs.
-
-== Step 4: Verify the in-cluster LLM is registered in Dev Spaces
-
-OpenCode is **not** installed from the template. Dev Spaces 3.29 injects it from the AI tool registry applied with `deploy/instances` in Lab 1.4. The same apply mounted `opencode.json` so every workspace talks to Qwen3.8.
+OpenCode is injected from the AI tool registry you applied in Lab 1.3. You are checking the platform, not the template.
 
 [source,sh,role=execute]
 ----
 CHE_NS=$(oc get checluster -A -o jsonpath='{.items[0].metadata.namespace}')
 
-echo "CheCluster namespace: $CHE_NS"
-
-oc get configmap ai-tool-registry -n "$CHE_NS" \
-  -o jsonpath='{.data.registry\.json}' | python3 -m json.tool
-
 oc get configmap opencode-workspace-config -n "$CHE_NS" \
   -o jsonpath='{.data.opencode\.json}' | python3 -m json.tool
 ----
 
-You should see:
-
-* Provider `opencodeai/opencode` with injector `quay.io/che-incubator/dashboard-ai/opencode:next`
-* `defaultAiProviders` set so the dashboard AI Selector is pre-checked
-* `baseURL` pointing at `https://maas.<apps-domain>/llm-serving/qwen3/v1`
-* Provider and model **name** `Qwen3.8` (the API model id stays `qwen3` — that is what vLLM serves)
-* `limit.output: 8192` so OpenCode does not request 32 000 tokens against `--max-model-len=40960`
+You should see `baseURL` at `https://maas.<apps-domain>/llm-serving/qwen3/v1`, provider/model *name* `Qwen3.8`, API id `qwen3`, and `limit.output: 8192`.
 
 [NOTE]
 ====
-The AI provider feature is a Dev Spaces *Technology Preview*. The dashboard shows an **AI Provider** section on Create Workspace when `ai-tool-registry` exists. Developers do not paste an API key — Secret `ai-provider-openai-api-key` injects the MaaS `sk-oai-` key as `OPENAI_API_KEY`.
+If you are on the shared workshop cluster, `GIT_SERVER` in `devfile.yaml` already matches. Do not fork and sed unless you are adapting this template to another cluster.
 ====
 
-== Step 5: Adapt devfile.yaml — set your GIT_SERVER
-
-The `devfile.yaml` has one value to update: the `GIT_SERVER` environment variable.
-This is the URL of the in-cluster Git server where developers will push their application repos.
-
-[source,sh,role=execute]
-----
-cat devfile.yaml | grep GIT_SERVER
-----
-
-Expected output:
-
-[source,console]
-----
-        - name: GIT_SERVER
-          value: https://gitpop.apps.sno.msl.cloud
-----
-
-Get your cluster's Git server URL and update the devfile:
-
-[source,sh,role=execute]
-----
-GIT_SERVER=https://$(oc get route gitpop -n gitpop \
-  -o jsonpath='{.spec.host}')
-
-echo "Git server: $GIT_SERVER"
-
-sed -i "s|https://gitpop.apps.sno.msl.cloud|${GIT_SERVER}|g" devfile.yaml
-----
-
-Commit and push the change to your fork:
-
-[source,sh,role=execute]
-----
-git add devfile.yaml
-git commit -m "fix: adapt GIT_SERVER for workshop cluster"
-git push
-----
-
-[NOTE]
-====
-If you are using the shared workshop cluster with the pre-configured defaults, the values already match and no push is required. Share the DevSpaces URL directly from Step 6.
-====
-
-== Step 6: Share the developer launch URL
-
-Developers open a single URL to get a fully configured workspace.
-Construct it from your Dev Spaces instance and the template repository:
+== Step 3: Copy the developer launch URL
 
 [source,sh,role=execute]
 ----
 DEVSPACES_URL=$(oc get checluster -A -o jsonpath='{.items[0].status.cheURL}')
-
 TEMPLATE_URL="https://github.com/fjcloud/go-app-template"
 
 echo "============================================"
@@ -242,54 +98,30 @@ echo "  $DEVSPACES_URL/#$TEMPLATE_URL?ai-provider=opencodeai/opencode"
 echo "============================================"
 ----
 
-When a developer opens that URL, Dev Spaces:
-
-1. Clones the template repository
-2. Injects OpenCode from the AI tool registry (init container) and mounts `opencode.json` (Qwen3.8)
-3. Runs `bootstrap` for gitpop and Ansible only
-4. Opens a VS Code workspace with the three deploy tasks visible in the sidebar (rocket icon)
-
-[TIP]
-====
-The *Tasks panel* in DevSpaces (sidebar → rocket icon) shows all `commands` from the devfile. Developers see:
-
-* *1. Push code to Git server* — runs `ansible-playbook scripts/git-push.yml`
-* *2. Build container image* — runs `ansible-playbook scripts/build-image.yml`
-* *3. Deploy with Argo CD* — runs `ansible-playbook scripts/gitops-deploy.yml`
-
-OpenCode generates the app. The developer triggers the tasks in order to ship it.
-====
+When a developer opens that URL, Dev Spaces clones the template, injects OpenCode, mounts `opencode.json`, installs gitpop, and opens VS Code in the browser. They talk to the model; `AGENTS.md` is the runbook.
 
 [IMPORTANT]
 ====
-Workspaces created *before* the AI registry existed do not include the OpenCode injector.
-Create a *new* workspace from the URL above — restarting an old workspace is not enough.
+Workspaces created from an older template still have Ansible scripts. Create a *new* workspace from the URL above — restarting an old workspace is not enough.
 ====
 
-image::cicd-gitops.png[GitOps Delivery Pipeline, align="center"]
-
-== Module 1 Complete
-
-As the Platform Engineer, you have deployed and configured the full developer platform:
+== Act 1 complete
 
 [cols="1,2", options="header"]
 |===
 | Component | Status
 
-| GPU Machine Pool (fixed, 1 node)
+| GPU machine pool (1× L40S)
 | ✅ Provisioned in ROSA
 
-| OpenShift AI + NVIDIA GPU Operator + NFD + Dev Spaces + Connectivity Link
-| ✅ Operators running; dashboard at `https://rh-ai.apps.<apps-domain>/`
+| Operators + dashboard
+| ✅ `https://rh-ai.apps.<apps-domain>/`
 
-| OpenShift GitOps (Argo CD) + OpenShift Pipelines (Tekton)
-| ✅ Installed cluster-wide
-
-| Qwen3.8 Models-as-a-Service + Dev Spaces AI provider
-| ✅ Ready; OpenCode pointed at the MaaS gateway with a `sk-oai-` key
+| Qwen3.8 as Models-as-a-Service
+| ✅ Gateway + `sk-oai-` key; model finishing load in the background
 
 | Go app template
-| ✅ Explored and adapted; developer DevSpaces URL ready to share
+| ✅ 43-line `AGENTS.md`; Dev Spaces URL ready to paste
 |===
 
-Switch persona — move on to *Module 2: Developer Experience*.
+Switch persona — move on to *Act 2: first day* (Lab 2.1).

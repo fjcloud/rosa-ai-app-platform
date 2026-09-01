@@ -1,106 +1,103 @@
 = AI-Powered Developer Platform on ROSA
 
-Welcome to the *AI-Powered Developer Platform on ROSA* workshop. In this half-day hands-on lab, you will learn how Red Hat OpenShift Service on AWS (ROSA) provides the perfect foundation for modern, AI-assisted software delivery — from running GPU-backed Large Language Models as a managed service, to giving every developer an intelligent cloud IDE that generates, deploys, and audits their applications automatically.
+Welcome to the *AI-Powered Developer Platform on ROSA* workshop.
+
+The story for today is a Monday at a company that will not send source code to a public LLM. Security approved an *in-cluster coding agent*: Qwen3.8 on a GPU, OpenCode in the browser, no Copilot, no `api.openai.com`.
+
+You wear two hats. In the morning you are the platform engineer (Alex): GPU, operators, Models-as-a-Service, one API key. In the afternoon you are the new hire (Sam): open a Dev Space, prompt Fortune Cookie into production, then audit it. Before you leave, you look at the GPU and token bill together.
 
 == Who This Workshop Is For
-
-This workshop is designed for two complementary personas that will work through the labs together:
 
 [cols="1,1", options="header"]
 |===
 | Persona | Role in This Workshop
 
-| *Platform Engineer*
-| Deploys ROSA infrastructure, provisions scalable GPU capacity, deploys an LLM as a Service using OpenShift AI, and sets the developer platform conventions — all without writing a runbook.
+| *Platform Engineer* (morning)
+| Provisions GPU capacity, installs operators, publishes Qwen3.8 behind a governed OpenAI-compatible API, and hands developers a 43-line `AGENTS.md` — not a runbook wiki.
 
-| *Developer*
-| Launches a cloud IDE (OpenShift Dev Spaces), uses an AI coding assistant (OpenCode) backed by the in-cluster LLM, generates and deploys a real application, then validates it against platform rules — all without leaving the browser.
+| *Developer* (afternoon)
+| Launches OpenShift Dev Spaces, talks to OpenCode backed by that in-cluster LLM, ships a real app through Tekton and Argo CD, then asks the same model to audit the manifests.
 |===
 
 == What You Will Build
 
-By the end of this workshop, you will have deployed a complete AI developer platform on ROSA and shipped a real application through it:
+image::architecture-overview.png[In-cluster coding agent on ROSA, align="center"]
 
-image::architecture-overview.png[Architecture Overview, align="center"]
+The LLM writes the app. The Fortune Cookie app does *not* call the LLM — it serves hard-coded fortunes. Qwen3.8 is a *platform* capability.
 
-=== Platform Engineer Track
-* A fixed-size *GPU machine pool* on ROSA — one GPU node, no manual EC2 interaction
-* *OpenShift AI* with Models-as-a-Service serving *Qwen3.8-27B* (Red Hat AI INT4) behind a governed OpenAI-compatible HTTPS API, plus the OpenShift AI dashboard for catalog and keys
-* *OpenShift Dev Spaces* — a browser-based cloud IDE pre-configured for every developer
-* *AGENTS.md* — a machine-readable rulebook that makes OpenCode enforce your platform conventions automatically
-* A *Go application template* — the "golden template" developers clone to start new projects
-* *OpenShift GitOps* (Argo CD) and *OpenShift Pipelines* (Tekton) — GitOps delivery infrastructure, ready for teams
+=== Act 1 — Platform
+* A fixed-size *GPU machine pool* on ROSA — one NVIDIA L40S, no manual EC2
+* *OpenShift AI* Models-as-a-Service serving *Qwen3.8-27B* (Red Hat AI INT4) behind one HTTPS front door and one `sk-oai-` key
+* *OpenShift Dev Spaces* pointed at that gateway
+* *AGENTS.md* — the only runbook OpenCode reads
+* *OpenShift GitOps* (Argo CD) and *OpenShift Pipelines* (Tekton)
 
-=== Developer Track
-* A personal Git repository — provisioned in seconds via the *Git server*, no GitHub account needed
-* A complete *Fortune Cookie application* generated live by OpenCode + Qwen3.8: Go binary, web UI, Kustomize manifests
-* The app built and deployed automatically via *OpenShift Pipelines* and *Argo CD*
-* Platform compliance validated — and auto-fixed — by the same LLM that wrote the code
+=== Act 2 — Developer
+* A personal Git repository via the in-cluster Git server
+* A *Fortune Cookie* Go app generated live by OpenCode + Qwen3.8
+* Image build and GitOps deploy from `git` / `gitpop` / `oc` — no Ansible, no local Docker
+* Platform rules (limits, probes, SCC, TLS) audited by the same model
+
+=== Act 3 — The bill
+* NVIDIA DCGM GPU metrics and vLLM token metrics in the same console
+* MaaS subscription quota — how the platform team caps cost
 
 == Learning Outcomes
 
 After completing this workshop, you will understand:
 
-* How ROSA's managed machine pools give you on-demand GPU capacity without EC2 complexity
-* How OpenShift AI (dashboard + `LLMInferenceService` + Models-as-a-Service) provides a governed, OpenAI-compatible LLM API on your own cluster
-* How `AGENTS.md` shifts platform governance from documentation to code
-* How OpenShift Dev Spaces + OpenCode creates an AI-augmented developer experience that requires no local setup
-* How OpenShift Pipelines and Argo CD form a complete GitOps delivery pipeline from a single repository
-* How to measure and govern LLM usage with NVIDIA DCGM dashboards and OpenShift AI model metrics
+* How ROSA managed machine pools give you GPU capacity without EC2 complexity
+* How OpenShift AI (`LLMInferenceService` + Models-as-a-Service) is a governed OpenAI-compatible API on your cluster
+* How `AGENTS.md` shifts platform governance from documentation to something the model enforces
+* How Dev Spaces + OpenCode is an AI-augmented inner loop with no laptop install
+* How Tekton and Argo CD form a GitOps path from a single repository
+* How GPU watts and token windows are the real cost of an in-cluster coding agent
 
 == Workshop Structure
 
 [cols="1,1,3,1", options="header"]
 |===
-| Module | Lab | Topic | Duration
+| Act | Lab | Topic | Duration
 
-.5+| *0 — Setup*
+| *0 — Get in*
 | —
 | Access your ROSA cluster, set up CLI credentials
 | 20 min
 
-.5+| *1 — Platform Engineer*
+.4+| *1 — Stand up the agent*
 | 1.1
 | Deploy a GPU Machine Pool
-| 15 min
+| 15 min (5 active)
 
 | 1.2
 | Install Platform Operators
 | 5 min active / ~20 min background
 
 | 1.3
-| Discover OpenShift AI
-| 15 min
+| Publish Qwen3.8 as a Service
+| 15 min active / model loads in background
 
 | 1.4
-| Deploy Qwen3.8 as Models-as-a-Service
-| 10 min active / ~15 min background
+| Hand the Keys (`AGENTS.md` + Dev Spaces URL)
+| 10 min
 
-| 1.5
-| Explore the Developer Template
-| 15 min
-
-.4+| *2 — Developer*
+.3+| *2 — First day*
 | 2.1
 | Launch Your Dev Space
 | 10 min
 
 | 2.2
-| Build and Deploy with OpenCode
-| 20 min
+| Prompt to Production (generate, ship, change)
+| 35 min
 
 | 2.3
-| Ship It: Change → Build → Deploy
-| 15 min
-
-| 2.4
-| Validate Best Practices with OpenCode
+| Audit with OpenCode
 | 10 min
 
-| *3 — Observability*
-| —
-| LLM Metrics & GPU Dashboards (optional)
-| 20 min
+| *3 — The bill*
+| 3.1
+| GPU and Token Metrics
+| 15 min
 
 | *—*
 | —
@@ -110,7 +107,7 @@ After completing this workshop, you will understand:
 
 [TIP]
 ====
-*Fire-and-forget timing:* Long operations (GPU node provisioning, operator installation, model download) are triggered early and run in the background while you work on other labs. By the time you need the LLM, it will be ready.
+*Fire-and-forget timing:* GPU node, operators, and model load are triggered early and run in the background. By the time Sam opens Dev Spaces, Qwen3.8 is Ready.
 ====
 
 == Prerequisites
@@ -123,4 +120,4 @@ You will need:
 
 Everything else — `rosa`, `oc`, `kubectl`, the OpenCode CLI, the Git server client — is either pre-installed in the lab environment or installed during the workshop steps.
 
-Let's get started!
+Let's get started.

@@ -1,67 +1,55 @@
-= Lab 2.2 — Build and Deploy with OpenCode
+= Lab 2.2 — Prompt to Production
 
-You have a Dev Space, an LLM, and a template repository that encodes your platform's rules in `AGENTS.md`. You will use two focused OpenCode sessions to go from zero to a running application on OpenShift.
+You have a Dev Space, an in-cluster LLM, and a 43-line `AGENTS.md`. Three OpenCode sessions take you from an empty tree to a live Fortune Cookie app, then through a real change — still no Ansible, no local Docker, no public LLM.
 
 [NOTE]
 ====
-*Estimated time:* 30 minutes +
+*Estimated time:* 35 minutes +
 *Persona:* Developer +
-*What you build:* A Fortune Cookie web application in Go — generated, built with Tekton, and deployed via your own Argo CD instance
+*What you build:* A Fortune Cookie web application in Go — generated, built with Tekton, deployed via your own Argo CD instance, then updated
 ====
 
 [TIP]
 ====
-OpenCode reads `AGENTS.md` before every prompt. You do not need to repeat platform rules — just describe what you want. The LLM knows the standards it must follow, including the exact Dockerfile template and how to call the deploy scripts.
+OpenCode reads `AGENTS.md` before every prompt. You do not repeat platform rules — describe what you want. The LLM knows the Dockerfile template and the `git` / `oc` deploy phases.
 ====
 
 == Step 1: Open the Project and Launch OpenCode
 
-Dev Spaces already cloned the template when you created your workspace — it is in `${PROJECT_SOURCE}`.
-Open a terminal and navigate to it:
+Dev Spaces already cloned the template — it is in `${PROJECT_SOURCE}`.
 
 [source,sh,role=execute]
 ----
 cd ${PROJECT_SOURCE}
-
-# Confirm the template files are present
 ls
 ----
 
 .Expected
 [source,console]
 ----
-AGENTS.md  deploy/  devfile.yaml  gitops/  pipeline/  scripts/
+AGENTS.md  deploy/  devfile.yaml  gitops/  pipeline/
 ----
-
-Launch OpenCode:
 
 [source,sh,role=execute]
 ----
 opencode
 ----
 
-The template provides three Ansible playbooks that OpenCode will call, plus the Kustomize manifests they apply:
-
 [cols="1,2,2",options="header"]
 |===
-| Playbook | What it does | Duration
-| `scripts/git-push.yml` | Creates your personal repo on the Git server and pushes all code | ~30s
-| `scripts/build-image.yml` | Applies `pipeline/base` (Kustomize), runs Tekton PipelineRun | 3–5 min
-| `scripts/gitops-deploy.yml` | Applies `gitops/base` (Kustomize ArgoCD), creates Application | 2–3 min
+| Phase | What it does | Duration
+| Git | `gitpop init` + commit + push to your personal repo | ~30s
+| Image | `oc apply -k pipeline/base` + Tekton PipelineRun | 3–5 min
+| GitOps | Point `image:` at the build, apply `gitops/base`, create the Argo CD Application | 2–3 min
 |===
 
-[TIP]
-====
-These playbooks are also exposed as one-click tasks in the DevSpaces sidebar (rocket icon). OpenCode calls them the same way — each task prints named steps so you can follow what is happening.
-====
+image::cicd-gitops.png[Prompt to production, align="center"]
 
 ---
 
 == Session 1: Plan
 
-The `plan` agent is read-only. It analyses the request and produces a detailed implementation plan *without writing any files*. Use it first to surface design decisions and let OpenCode internalize `AGENTS.md`.
-
-Type this prompt in OpenCode:
+The `plan` agent is read-only. It produces an implementation plan *without writing files*. Use it first so OpenCode internalizes `AGENTS.md`.
 
 [source,text,role=execute]
 ----
@@ -78,7 +66,7 @@ Read AGENTS.md and produce a complete implementation plan:
 - File list and purpose of each file
 - HTTP handler logic
 - Dockerfile stages (follow the template in AGENTS.md exactly)
-- Deploy steps using the three scripts
+- Deploy steps from AGENTS.md (gitpop, Tekton PipelineRun, Argo CD)
 
 Do not write any code yet. Only plan.
 ----
@@ -89,7 +77,7 @@ Review the plan. Adjust if needed. When satisfied, proceed to Session 2.
 
 == Session 2: Build and Deploy
 
-This single session does everything: generates code, verifies the local build, then calls the deploy scripts in order. Start a new session (`Ctrl+N`):
+This session generates code, verifies the local build, then runs the deploy phases in `AGENTS.md`. Start a new session (`Ctrl+N`):
 
 [source,text,role=execute]
 ----
@@ -112,27 +100,21 @@ Fix any compile error before continuing. Show the build output.
 
 == Phase 2: Deploy
 
-Once the build succeeds, run the three Ansible playbooks from AGENTS.md in order:
+Once the build succeeds, follow the three deploy phases in AGENTS.md in order
+(gitpop + git push, Tekton PipelineRun, Argo CD Application).
+Use git / gitpop / oc — do not create Ansible playbooks.
 
-  ansible-playbook scripts/git-push.yml
-  ansible-playbook scripts/build-image.yml
-  ansible-playbook scripts/gitops-deploy.yml
-
-Read each playbook's task output. Wait for it to succeed before running the next.
-If a task fails, the error is shown inline — read it and fix the root cause.
+Wait for each phase to succeed before the next.
+If a command fails, read the error and fix the root cause.
 
 At the end, print:
 - The app route URL
 - The personal Argo CD console URL
 ----
 
-OpenCode will work through both phases automatically, reporting each step. You will see the Dockerfile it generates, the binary being compiled, and the three Ansible playbooks executing — each one printing named tasks so you can follow exactly what the platform is doing.
+OpenCode works through both phases. You will see the Dockerfile, the local Go build, then `gitpop` / `oc` from `AGENTS.md`.
 
----
-
-== Checkpoint
-
-Verify your application is live:
+=== Checkpoint — the app is live
 
 [source,sh,role=execute]
 ----
@@ -159,8 +141,68 @@ Expected:
 Open both URLs in your browser:
 
 * The app URL shows a random fortune cookie message
-* The Argo CD console shows your `fortune-cookie` Application in *Synced / Healthy* state — this is *your* Argo CD instance, scoped entirely to your project
+* The Argo CD console shows your `fortune-cookie` Application in *Synced / Healthy* — *your* Argo CD instance, scoped to your project
 
-image::cicd-gitops.png[Developer GitOps Pipeline, align="center"]
+The Fortune Cookie process does *not* call Qwen3.8. The model wrote the code; the running app serves a slice of strings.
 
-➡️ Move on to *Lab 2.3: Ship It — Change → Build → Deploy*.
+---
+
+== Session 3: Ship a change
+
+Close the GitOps loop: change the app, push, watch Tekton rebuild, roll the deployment. Still no hand-written `kubectl apply` for the app.
+
+Start a new OpenCode session in `${PROJECT_SOURCE}`:
+
+[source,text,role=execute]
+----
+/build
+
+Add 10 more fortune cookie messages to the slice in main.go.
+Make the HTML page display the fortune in a styled card with a cookie emoji 🥠.
+After making the changes, verify the build:
+  CGO_ENABLED=0 go build -buildvcs=false -o /dev/null .
+
+Then ship it using the "Ship a later change" section in AGENTS.md:
+git commit + push, a new Tekton PipelineRun, then
+  oc rollout restart deployment/$APP_NAME -n ${APP_NAME}-dev
+----
+
+Wait for OpenCode to confirm the PipelineRun succeeded.
+
+You can watch the build in the OpenShift console: *Pipelines → PipelineRuns* in the `fortune-cookie-build` namespace.
+
+[source,sh,role=execute]
+----
+oc get application $APP_NAME -n ${APP_NAME}-dev \
+  -o jsonpath='{.status.sync.status} / {.status.health.status}' && echo
+
+oc rollout status deployment/$APP_NAME -n ${APP_NAME}-dev --timeout=120s
+
+ROUTE=$(oc get route $APP_NAME -n ${APP_NAME}-dev -o jsonpath='{.spec.host}')
+echo "https://${ROUTE}"
+curl -sk https://${ROUTE}/healthz
+----
+
+.Expected
+[source,text,options=nowrap]
+----
+Synced / Healthy
+----
+
+Open the URL — you should see the cookie emoji 🥠 and the new fortunes.
+
+[cols="1,2", options="header"]
+|===
+| Step | Platform action
+
+| `git push`
+| Updated code on your personal Git repo
+
+| Tekton `PipelineRun`
+| `git-clone` + `buildah`, image to the internal registry
+
+| `oc rollout restart`
+| Pods pull `${APP_NAME}:latest`
+|===
+
+➡️ Move on to *Lab 2.3: Audit with OpenCode*.

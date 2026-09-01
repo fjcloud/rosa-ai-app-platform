@@ -1,133 +1,86 @@
-= Lab 1.3 — Discover OpenShift AI
+= Lab 1.3 — Publish Qwen3.8 as a Service
 
-While the operators install in the background, use this time to understand how OpenShift AI 3.5 serves models *as a service* — the control plane you will apply in the next lab. GitOps still owns the serving stack; the OpenShift AI dashboard is the UI for MaaS catalogs, subscriptions, and API keys.
+Operators are still installing. Use two minutes to understand *why* Models-as-a-Service, wait until the operators are Ready, then apply the serving stack. Developers get one HTTPS front door and one `sk-oai-` key — not a raw predictor Service, and not `api.openai.com`.
 
 [NOTE]
 ====
-*Estimated time:* 15 minutes +
+*Estimated time:* 15 minutes active + model load in the background +
 *Persona:* Platform Engineer +
-This lab is conceptual + CLI exploration. Operators are still installing in the background — that is intentional.
+*Fire and forget:* After you apply inference, move to Lab 1.4. The model is Ready before Act 2.
 ====
 
-== What is OpenShift AI?
+== Why Models-as-a-Service (two minutes)
 
-Red Hat OpenShift AI (formerly RHODS) is a platform for building and serving AI-powered applications on OpenShift. This workshop uses a focused subset:
+OpenShift AI 3.5 serves the model as an `LLMInferenceService`. Models-as-a-Service sits in front: Gateway, API keys, token quota. GitOps still owns the serving stack. The dashboard is the UI for catalog, subscriptions, and extra keys.
 
-[cols="1,2", options="header"]
-|===
-| Component | Role
-
-| *RHOAI Operator*
-| Lifecycle of OpenShift AI components (`DataScienceCluster` / `DSCInitialization`)
-
-| *DataScienceCluster*
-| Enables subsystems. You turn on KServe, Models-as-a-Service (`aigateway.modelsAsAService`), the dashboard, and OGX (Gen AI studio).
-
-| *KServe `LLMInferenceService`*
-| The LLM serving API. One object is one model: GPU placement, vLLM, Gateway HTTPRoute.
-
-| *Models-as-a-Service*
-| Catalog (`MaaSModelRef`), access (`MaaSAuthPolicy`), quota (`MaaSSubscription`), and `sk-oai-` API keys.
-
-| *Red Hat Connectivity Link*
-| Authorino validates keys; Limitador enforces token windows. Required by MaaS.
-|===
-
-== The Model Serving Architecture
+image::model-serving-architecture.png[Qwen3.8 as Models-as-a-Service, align="center"]
 
 [source]
 ----
- Platform Engineer
+ OpenCode / curl
+        │  Authorization: Bearer sk-oai-...
+        ▼
+ Gateway  maas.<apps-domain>     Authorino (auth) + Limitador (quota)
         │
         ▼
- LLMInferenceService  +  MaaSModelRef / MaaSAuthPolicy / MaaSSubscription
-        │  "Serve Qwen3.8 with Red Hat vLLM on GPU, publish through MaaS"
-        ▼
- Gateway  maas.<apps-domain>  (Authorino + Limitador)
+ LLMInferenceService/qwen3       Red Hat vLLM on the L40S
         │
         ▼
- Predictor Pod (GPU node)
-        │  vLLM process, weights on PVC, TLS to the mesh
-        ▼
- POST /v1/chat/completions   (OpenAI-compatible, Authorization: Bearer sk-oai-...)
+ POST /v1/chat/completions       OpenAI-compatible JSON
 ----
 
-The key insight: *one governed OpenAI-compatible front door*. LangChain, OpenCode, curl — anything that speaks OpenAI — works. One `sk-oai-` API key (not an access/secret pair). The dashboard at `https://rh-ai.apps.<apps-domain>/` is where you browse the catalog and mint extra keys; GitOps still owns the serving stack.
+Anything that already speaks OpenAI works. One key, not an access/secret pair. Do not install Service Mesh 3 — OpenShift 4.22 already has Gateway API.
 
-== Why not a plain Deployment?
-
-[cols="1,1,1", options="header"]
+[cols="1,2", options="header"]
 |===
-| Feature | Standard Deployment | LLMInferenceService + MaaS
+| Compared with a plain Deployment | What MaaS adds
 
-| GPU placement
-| Manual toleration + node selector
-| Same, plus KServe workload presets (TLS, shm, probes)
+| You wire GPU tolerations and a Route yourself
+| Same placement, plus KServe TLS, shm, probes, HTTPRoute on `maas-default-gateway`
 
-| Public API
-| You wire a Route and hope
-| Gateway + HTTPRoute attached to `maas-default-gateway`
+| No auth
+| `sk-oai-` keys, groups, 429 when over budget
 
-| Auth / quota
-| None
-| API keys, groups, token windows, 429 when over budget
-
-| Metrics
-| Generic CPU/memory
-| vLLM tokens/s + MaaS consumption per key
+| Generic CPU/memory metrics
+| vLLM tokens/s + consumption per key
 |===
 
-== The OpenAI-Compatible API
-
-[source,sh]
-----
-# Cloud OpenAI:
-curl https://api.openai.com/v1/chat/completions \
-  -H "Authorization: Bearer $OPENAI_KEY" \
-  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello"}]}'
-
-# MaaS on this cluster (same JSON shape). Path-based URL keeps model id "qwen3":
-curl https://maas.<apps-domain>/llm-serving/qwen3/v1/chat/completions \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
-  -d '{"model": "qwen3", "messages": [{"role": "user", "content": "Hello"}]}'
-----
-
-== Qwen3.8: The Model You Are Deploying
+=== Qwen3.8 on this GPU
 
 [cols="1,2", options="header"]
 |===
 | Property | Value
 
-| Model family
-| Alibaba Qwen3.8 (通义千问3.8) — a Chinese-developed, open-weight dense model, packaged by Red Hat AI
+| Checkpoint
+| `RedHatAI/Qwen3.8-27B-INT4` (~19.5 GB, fits one L40S)
 
-| Variant
-| Qwen3.8-27B — 27B dense parameters (native vision-language model; this workshop uses text only)
+| Engine
+| Red Hat vLLM CUDA 3.5.0 — `registry.redhat.io/rhaii/vllm-cuda-rhel9:3.5.0`
 
-| Quantization
-| INT4 / W4A16 (`compressed-tensors`) — ~19.5 GB, fits on a single L40S
+| Context
+| Native 262,144; this workshop serves *40,960* (`--max-model-len=40960`)
 
-| Serving engine
-| Red Hat vLLM CUDA 3.5.0 (vLLM 0.24) — `registry.redhat.io/rhaii/vllm-cuda-rhel9:3.5.0`
+| API id / display name
+| `qwen3` / *Qwen3.8*
 
-| Context window
-| 262,144 tokens natively; this workshop serves **40,960** tokens (`--max-model-len=40960`)
-
-| Special capability
-| Thinking/reasoning mode (`--reasoning-parser=qwen3`) and tool calling (`--tool-call-parser=qwen3_coder`)
-
-| HuggingFace ID
-| `RedHatAI/Qwen3.8-27B-INT4`
+| Tools / reasoning
+| `--tool-call-parser=qwen3_coder`, `--reasoning-parser=qwen3`
 |===
 
-[TIP]
-====
-*Why Qwen3.8?* Red Hat AI publishes a vLLM-ready INT4 checkpoint of Qwen3.8-27B. It combines strong reasoning (plan agent) with strong code generation and tool calling (build agent) in a package that fits on a single GPU. OpenCode needs `--enable-auto-tool-choice` and `--tool-call-parser=qwen3_coder`.
-====
+OpenCode needs `--enable-auto-tool-choice` and `limit.output: 8192` so it does not request 32 000 tokens against a 40 960 window.
 
-== ✅ Checkpoint: Verify Operators Are Ready
+Same JSON as cloud OpenAI, different host:
 
-Verify Lab 2 background installs have completed:
+[source,sh]
+----
+curl https://maas.<apps-domain>/llm-serving/qwen3/v1/chat/completions \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{"model": "qwen3", "messages": [{"role": "user", "content": "Hello"}]}'
+----
+
+== ✅ Checkpoint: Operators Ready
+
+Lab 1.2 is still running in the background. Wait here before you apply instances.
 
 [source,sh,role=execute]
 ----
@@ -164,4 +117,170 @@ deployment.apps/cert-manager condition met
 If any `wait` times out, check `oc get pods -n <namespace>`. Common causes: image pull throttling, or worker CPU pressure (this workshop pins extra operator replicas onto the GPU node via tolerations).
 ====
 
-➡️ Move on to *Lab 1.4: Deploy Qwen3.8 as Models-as-a-Service*.
+== Step 1: Create Platform Instances
+
+This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (Authorino TLS + dashboard GPU taints and MaaS UI flags).
+
+[source,sh,role=execute]
+----
+oc apply -k deploy/instances
+bash deploy/instances/configure-platform.sh
+----
+
+.Sample Output
+[source,text,options=nowrap]
+----
+datasciencecluster.datasciencecluster.opendatahub.io/default-dsc created
+checluster.org.eclipse.che/devspaces created
+gateway.gateway.networking.k8s.io/maas-default-gateway created
+kuadrant.kuadrant.io/kuadrant created
+Authorino TLS configured.
+Dashboard GPU-node tolerations and MaaS UI flags applied.
+Platform instances configured (Authorino TLS + dashboard).
+----
+
+=== What was created
+
+[cols="1,2", options="header"]
+|===
+| Object | Purpose
+
+| `DataScienceCluster`
+| Turns on KServe, MaaS, the dashboard, and OGX (Gen AI studio).
+
+| `Gateway` (`maas-default-gateway`)
+| One HTTPS front door: `https://maas.<apps-domain>/`
+
+| `Kuadrant` + workshop Postgres
+| API-key auth (Authorino) and token quota (Limitador). Postgres is POC-only.
+
+| `CheCluster` + OpenCode ConfigMaps
+| Dev Spaces workspaces pointed at MaaS. The key is minted in Step 3.
+
+| `NodeFeatureDiscovery` / `ClusterPolicy`
+| GPU labels, drivers, device plugin.
+|===
+
+=== Wait for MaaS
+
+[source,sh,role=execute]
+----
+oc wait checluster/devspaces \
+  -n openshift-operators \
+  --for=jsonpath='{.status.chePhase}'=Active \
+  --timeout=300s
+
+oc wait datasciencecluster/default-dsc \
+  --for=jsonpath='{.status.conditions[?(@.type=="ModelsAsAServiceReady")].status}'=True \
+  --timeout=300s
+
+oc wait datasciencecluster/default-dsc \
+  --for=jsonpath='{.status.conditions[?(@.type=="DashboardReady")].status}'=True \
+  --timeout=300s
+
+oc wait maastenantconfig/default-tenant \
+  -n models-as-a-service \
+  --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
+  --timeout=300s
+----
+
+.Expected Output
+[source,text,options=nowrap]
+----
+checluster.org.eclipse.che/devspaces condition met
+datasciencecluster.datasciencecluster.opendatahub.io/default-dsc condition met
+datasciencecluster.datasciencecluster.opendatahub.io/default-dsc condition met
+maastenantconfig.maas.opendatahub.io/default-tenant condition met
+----
+
+Dashboard: `https://rh-ai.apps.<apps-domain>/` (also *Red Hat OpenShift AI* in the OpenShift Application launcher). Log in with cluster-admin. Catalog and extra keys live under Gen AI / Models-as-a-Service. Dev Spaces still needs the key in Secret `ai-provider-openai-api-key` — that is Step 3, not the dashboard.
+
+== Step 2: Publish Qwen3.8 to MaaS
+
+This creates:
+
+* The `llm-serving` namespace and 50 Gi model-cache PVC
+* `LLMInferenceService/qwen3` — Red Hat vLLM CUDA 3.5.0 on the GPU node, attached to `maas-default-gateway`
+* `MaaSModelRef` (catalog), `MaaSAuthPolicy` (who can call it), `MaaSSubscription` (token quota)
+
+[source,sh,role=execute]
+----
+oc apply -k deploy/inference
+----
+
+.Sample Output
+[source,text,options=nowrap]
+----
+namespace/llm-serving created
+persistentvolumeclaim/qwen-model-cache created
+llminferenceservice.serving.kserve.io/qwen3 created
+maasmodelref.maas.opendatahub.io/qwen3 created
+maasauthpolicy.maas.opendatahub.io/qwen3-access created
+maassubscription.maas.opendatahub.io/qwen3-workshop created
+----
+
+=== The LLMInferenceService (after the apply)
+
+[source,yaml]
+----
+spec:
+  replicas: 1
+  model:
+    uri: hf://RedHatAI/Qwen3.8-27B-INT4
+    name: qwen3                          # <1>
+  storageInitializer:
+    enabled: false                       # <2>
+  router:
+    gateway:
+      refs:
+        - name: maas-default-gateway     # <3>
+          namespace: openshift-ingress
+  template:
+    containers:
+      - name: main
+        image: registry.redhat.io/rhaii/vllm-cuda-rhel9:3.5.0
+        args:
+          - --served-model-name=qwen3
+          - --max-model-len=40960
+          - --ssl-certfile=/var/run/kserve/tls/tls.crt   # <4>
+----
+
+<1> API model id stays `qwen3`; the display name is Qwen3.8
+<2> Weights already live on PVC `qwen-model-cache` (`HF_HOME=/opt/models`). Skip the storage-initializer re-download.
+<3> Required for MaaS: the HTTPRoute attaches to `maas-default-gateway`
+<4> OpenShift AI 3.5 enables backend TLS by default; vLLM must present the KServe service-CA cert
+
+The image is *Red Hat AI Inference* CUDA (`rhaii/vllm-cuda-rhel9:3.5.0`) — not community `vllm/vllm-openai`.
+
+=== Let the model load in the background
+
+A cold cluster downloads ~18 GiB from Hugging Face. This workshop PVC is already populated, so vLLM mainly loads weights into GPU memory (~5–8 minutes).
+
+[source,sh,role=execute]
+----
+oc wait llminferenceservice/qwen3 -n llm-serving \
+  --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
+  --timeout=600s &
+echo "Model wait started in background (PID $!)"
+----
+
+== Step 3: Mint the workshop API key
+
+Inference uses *one* `sk-oai-` Bearer token (not an access key + secret). The script mints a key bound to `qwen3-workshop` (5 000 000 tokens / 24h) and stores it as `OPENAI_API_KEY` for every Dev Spaces workspace.
+
+[source,sh,role=execute]
+----
+bash deploy/inference/mint-workshop-key.sh
+----
+
+You have now:
+
+* Dashboard — `https://rh-ai.apps.<apps-domain>/`
+* Gateway — `https://maas.<apps-domain>/`
+* `LLMInferenceService/qwen3` loading on the GPU
+* Catalog, access, quota (`MaaSModelRef` / `MaaSAuthPolicy` / `MaaSSubscription`)
+* One `sk-oai-` key in Secret `ai-provider-openai-api-key`
+
+Lab 2.1 smoke-tests the same URL OpenCode will call. Extra keys for curl can also be created in the dashboard; they do not replace this Secret.
+
+➡️ Move to *Lab 1.4: Hand the Keys*. Developers call MaaS; they never talk to the predictor Service.

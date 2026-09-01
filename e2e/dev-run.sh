@@ -96,7 +96,8 @@ step "Phase 2: Developer simulation — deploy container"
 
 oc new-project "$E2E_NS" 2>/dev/null || oc project "$E2E_NS"
 
-# Give the pod SA the same rights a developer would have when running oc/ansible
+# Give the pod SA the same rights a developer would have when running oc
+# from their own kubeconfig (self-provisioner + admin on created namespaces).
 # from their own kubeconfig (self-provisioner + admin on created namespaces).
 # cluster-admin is used here only for e2e convenience; in a real workshop the
 # developer authenticates with their personal OpenShift token.
@@ -136,7 +137,7 @@ ok "Pod $DEV_POD is Running"
 POD_EXEC="oc exec $DEV_POD -n $E2E_NS --"
 
 # ── Install dependencies inside the pod ───────────────────────────────────────
-step "Phase 2a: Install OpenCode, gitpop, and Ansible inside developer pod"
+step "Phase 2a: Install OpenCode and gitpop inside developer pod"
 
 $POD_EXEC bash -c "
   set -e
@@ -147,16 +148,12 @@ $POD_EXEC bash -c "
   curl -fsSL \"\$GIT_SERVER/dl/gitpop?os=linux&arch=amd64\" \
     -o \$HOME/.local/bin/gitpop
   chmod +x \$HOME/.local/bin/gitpop
-  echo '→ Installing Ansible + OpenShift libraries...'
-  python3.9 -m ensurepip --user 2>/dev/null || true
-  python3.9 -m pip install --user --quiet ansible kubernetes openshift
   echo '→ Verifying tools...'
   opencode --version
   gitpop --version || gitpop help | head -3
-  ansible --version | head -1
   echo 'Dependencies OK'
 "
-ok "OpenCode, gitpop, and Ansible installed in pod"
+ok "OpenCode and gitpop installed in pod"
 
 # ── Clone template and set up workspace ───────────────────────────────────────
 step "Phase 2b: Clone template and configure workspace"
@@ -236,7 +233,7 @@ After writing every file, run:
   CGO_ENABLED=0 go build -buildvcs=false -o /dev/null .
 
 Fix any compile error before finishing. Show the build output.
-Do NOT run ansible playbooks. Stop after the Go build succeeds.
+Do NOT deploy yet. Stop after the Go build succeeds.
 PROMPTEOF
   echo '--- generated files ---'
   ls -la main.go go.mod Dockerfile
@@ -250,10 +247,8 @@ $POD_EXEC bash -c "
   /usr/local/go/bin/go build -buildvcs=false -o /dev/null . 2>&1
 " && ok "Go build OK" || warn "Go build failed — check code"
 
-# ── Run OpenCode: Deploy agent ────────────────────────────────────────────────
-step "Phase 2d: Deploy — run devfile task scripts"
-# The deploy scripts ship inside the template and are the same scripts DevSpaces
-# exposes as named Tasks. The e2e just calls them directly — same code, same result.
+# ── Run OpenCode: Deploy following AGENTS.md ──────────────────────────────────
+step "Phase 2d: Deploy — OpenCode follows AGENTS.md (git + oc, no Ansible)"
 
 # Set up kubeconfig in pod using the mounted service account token
 # (mirrors what OpenShift DevSpaces injects automatically for real users)
@@ -283,31 +278,32 @@ $POD_EXEC bash -c "
 " 2>&1
 ok "Kubeconfig configured in pod"
 
-info "Playbook git-push — create app Git repository..."
-$POD_EXEC bash -lc "
-  cd ~/\$APP_NAME
-  ansible-playbook scripts/git-push.yml
-" 2>&1 | tee /tmp/deploy-git.log || warn "git-push playbook failed — see /tmp/deploy-git.log"
-
-APP_REPO_URL=$($POD_EXEC bash -lc "
-  cd ~/\$APP_NAME 2>/dev/null && git remote get-url origin 2>/dev/null || echo ''
-" 2>/dev/null | tr -d '\r\n' || echo "")
-info "App repo: ${APP_REPO_URL:-<not captured>}"
-
-info "Playbook build-image — build container image with OpenShift Pipelines..."
+info "OpenCode deploy — AGENTS.md phases (gitpop, Tekton, Argo CD)..."
 # Pre-create build namespace and grant buildah the privileged SCC it needs
 oc new-project "${APP_NAME}-build" 2>/dev/null || true
 oc adm policy add-scc-to-user privileged -z pipeline -n "${APP_NAME}-build" 2>/dev/null || true
 $POD_EXEC bash -lc "
   cd ~/\$APP_NAME
-  ansible-playbook scripts/build-image.yml
-" 2>&1 | tee /tmp/deploy-build.log || warn "build-image playbook failed — see /tmp/deploy-build.log"
+  export PATH=/home/user/.opencode/bin:/home/user/.local/bin:\$PATH
+  export KUBECONFIG=/home/user/.kube/config
+  timeout 1200 opencode run --print-logs << 'PROMPTEOF' || echo 'OpenCode deploy exited (timeout or error)'
+Follow AGENTS.md strictly to deploy this app.
 
-info "Playbook gitops-deploy — deploy developer-owned Argo CD + Application..."
-$POD_EXEC bash -lc "
-  cd ~/\$APP_NAME
-  ansible-playbook scripts/gitops-deploy.yml
-" 2>&1 | tee /tmp/deploy-gitops.log || warn "gitops-deploy playbook failed — see /tmp/deploy-gitops.log"
+Do not create Ansible playbooks. Use git, gitpop, and oc only.
+
+Run the three deploy phases in AGENTS.md in order:
+1. Push to the personal Git server (gitpop init + commit + push)
+2. Build the image (Tekton PipelineRun) — wait for Succeeded
+3. Deploy with Argo CD (update image:, apply gitops/base, create Application)
+
+Print the app route URL and the Argo CD console URL at the end.
+PROMPTEOF
+" 2>&1 | tee /tmp/deploy-opencode.log || warn "OpenCode deploy failed — see /tmp/deploy-opencode.log"
+
+APP_REPO_URL=$($POD_EXEC bash -lc "
+  cd ~/\$APP_NAME 2>/dev/null && git remote get-url origin 2>/dev/null || echo ''
+" 2>/dev/null | tr -d '\r\n' || echo "")
+info "App repo: ${APP_REPO_URL:-<not captured>}"
 
 ok "OpenCode deploy session complete"
 

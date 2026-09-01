@@ -1,218 +1,112 @@
-= Module 3 — LLM Metrics & GPU Monitoring
+= Lab 3.1 — GPU and Token Metrics
 
-Every developer on the platform has just used Qwen3.8 — through OpenCode during development and through the Fortune Cookie app at runtime. From the Platform Engineer's perspective, this LLM consumption is real infrastructure cost. In this module, you look at what happened: how much GPU was used, how the model performed under load, and how you would govern LLM usage at scale.
+Act 3 is required. You stood up an in-cluster coding agent this morning and spent the afternoon prompting it. That is real GPU time and real tokens. Look at the bill before you leave.
+
+The Fortune Cookie *app* does not call Qwen3.8 — it serves hard-coded strings. The GPU graph is OpenCode sessions (and the one-time model load), not HTTP hits to `/`.
 
 [NOTE]
 ====
-*Estimated time:* 20 minutes +
+*Estimated time:* 15 minutes +
 *Personas:* Platform Engineer + Developer (together) +
 *Access:* OpenShift Web Console
 ====
 
-== Two Monitoring Surfaces
+image::the-bill-observability.png[The bill — GPU and tokens, align="center"]
+
+== Two surfaces
 
 [cols="1,2", options="header"]
 |===
-| Dashboard | What It Shows
+| Dashboard | What it shows
 
 | *NVIDIA DCGM Exporter Dashboard*
-| Raw GPU hardware metrics: utilization %, VRAM usage, temperature, power draw, PCIe bandwidth. Loaded into the OpenShift monitoring console by `deploy/instances` (`nvidia-dcgm-exporter-dashboard` ConfigMap).
+| GPU % , VRAM, temperature, watts. Loaded by `deploy/instances` (`nvidia-dcgm-exporter-dashboard` ConfigMap).
 
-| *OpenShift AI Model Metrics*
-| LLM-specific metrics: requests/sec, tokens generated per second (throughput), time-to-first-token (TTFT), request latency percentiles, concurrent requests in-flight.
+| *vLLM + MaaS*
+| Tokens/sec, time-to-first-token, concurrent requests, subscription window (5M tokens / 24h). Over quota → HTTP 429.
 |===
 
-== Part 1: NVIDIA DCGM GPU Dashboard
+== Part 1: NVIDIA DCGM
 
-=== Open the Dashboard
-
-. In the OpenShift Web Console, navigate to:
-+
-*Observe → Dashboards*
-
-. In the *Dashboard* dropdown, search for `NVIDIA DCGM Exporter Dashboard`.
-
-. Select the GPU node from the *node* filter (it should be the only `g6e.xlarge` node).
-
-image::dcgm-dashboard.png[NVIDIA DCGM Dashboard showing GPU utilization, align="center"]
-
-=== Key Metrics to Review
+. In the OpenShift Web Console: *Observe → Dashboards*
+. Dashboard dropdown: `NVIDIA DCGM Exporter Dashboard`
+. Node filter: the `g6e.xlarge` GPU node
 
 [cols="1,2,1", options="header"]
 |===
-| Metric | What It Tells You | Healthy Range
+| Metric | What it tells you | Healthy range
 
 | *GPU Utilization %*
-| Percentage of time the GPU compute cores are active. High during inference, near 0 when idle.
-| 30-95% during load
+| Compute cores active. High during OpenCode prompts, near 0 when idle.
+| 30–95% during load
 
 | *GPU Memory Used (GiB)*
-| VRAM consumed by the model weights + KV cache. Qwen3.8-27B INT4 uses ~20 GB of the 48 GB L40S.
-| ~20-40 GiB
+| Weights + KV cache. Qwen3.8-27B INT4 uses ~20 GB of 48 GB.
+| ~20–40 GiB
 
 | *GPU Temperature (°C)*
-| Thermal state. L40S throttles above 87°C.
+| L40S throttles above 87°C.
 | < 80°C
 
 | *GPU Power Draw (W)*
-| Electricity consumption. Correlates directly with inference load.
-| 50-300 W (idle to full load)
-
-| *PCIe RX/TX Bandwidth*
-| Data transfer between CPU and GPU — relevant for large batch inputs.
-| Spikes during model loading
+| Correlates with inference load — this is the electricity line on the bill.
+| 50–300 W
 |===
 
-=== Correlate with Workshop Activity
+On the *GPU Utilization* graph for the last few hours you should see:
 
-Look at the *GPU Utilization* graph over the last 30 minutes. You should see:
-
-* *Spike at model load time* (when the PVC weights were read into VRAM)
-* *Activity bursts* when participants used OpenCode (each prompt = GPU compute)
-* *Sustained utilization* from Fortune Cookie app calls
-* *Periods of lower utilization* between bursts (GPU efficient — not spinning at 100% idle)
+* A spike when weights loaded into VRAM
+* Bursts when you used OpenCode (`/plan`, `/build`, the audit)
+* Idle valleys between prompts — the GPU is not spinning at 100% when nobody is chatting
 
 [TIP]
 ====
-*This is the governance moment.* Ask the participants: if you had 50 developers using OpenCode all day, what would this graph look like? At what point would you need a second GPU node? The Platform Engineer can *see* saturation happening here — and use that data to justify expanding the machine pool.
+If 50 developers used OpenCode all day, what would this graph look like? When would you add a second GPU node? That is how the platform team justifies expanding the machine pool.
 ====
 
-== Part 2: OpenShift AI Model Metrics
+== Part 2: vLLM metrics
 
-=== Access the Model Metrics
-
-OpenShift AI exposes KServe's built-in metrics via the cluster monitoring stack (Prometheus).
-
-. Navigate to *Observe → Metrics* in the OpenShift Web Console.
-
-. In the query field, explore these PromQL expressions:
-
-==== Inference Request Rate
+*Observe → Metrics*. Try:
 
 [source,promql]
 ----
 rate(vllm:request_success_total{namespace="llm-serving"}[5m])
 ----
 
-Shows requests per second successfully served by vLLM. During the workshop, you should see a baseline from OpenCode usage plus spikes from Fortune Cookie app calls.
-
-==== Token Generation Throughput
-
 [source,promql]
 ----
 rate(vllm:generation_tokens_total{namespace="llm-serving"}[5m])
 ----
 
-Tokens generated per second. Qwen3.8-27B INT4 on an L40S typically achieves 20-60 tokens/sec depending on batch size and prompt length.
-
-==== Time to First Token (TTFT)
+Qwen3.8-27B INT4 on this L40S is typically 20–60 tokens/sec depending on batch and prompt length.
 
 [source,promql]
 ----
-histogram_quantile(0.95, 
+histogram_quantile(0.95,
   rate(vllm:time_to_first_token_seconds_bucket{namespace="llm-serving"}[5m])
 )
 ----
 
-The 95th percentile TTFT — how long users wait before seeing the first word of a response. Should be under 2-3 seconds for interactive use.
-
-==== Concurrent Requests In-Flight
+95th percentile time-to-first-token should stay under 2–3 seconds for interactive use.
 
 [source,promql]
 ----
 vllm:num_requests_running{namespace="llm-serving"}
-----
-
-Number of requests being processed simultaneously. vLLM's continuous batching allows multiple requests to run in parallel on the same GPU. This is the key capacity metric — when it saturates, it is time to add a second GPU node.
-
-==== Request Queue Length
-
-[source,promql]
-----
 vllm:num_requests_waiting{namespace="llm-serving"}
 ----
 
-Requests waiting to be processed. If this is consistently > 0, the model is saturated. In this workshop the pool is fixed at one node; in production you would use KEDA watching this metric to trigger a scale-out.
+When `num_requests_waiting` is consistently > 0, the model is saturated. This workshop is a fixed single GPU; production would use KEDA on that metric.
 
-== Part 3: The Governance Story
+== Part 3: Token quota is how you cap cost
 
-=== Cost Attribution
-
-Each Fortune Cookie request consumes GPU-time. A Platform Engineer can estimate costs:
-
-[source]
-----
-Token throughput:      ~30 tokens/sec
-Average fortune:       ~40 tokens
-Requests per fortune:  1
-Cost per token (L40S): ~$0.00003 (rough estimate: g6e.xlarge ~$1.65/hr ÷ 3600s ÷ 30 tok/s)
-
-Cost per fortune:      ~40 × $0.00003 = $0.0012
-----
-
-At scale: 100 developers each making 100 OpenCode requests/day × 500 tokens average = ~$15/day in GPU compute. This is *measurable*, *predictable*, and *attributable* to teams — something you cannot do with a shared SaaS API key.
-
-=== Machine Pool Status
-
-Confirm the GPU node is still running and the inference service is healthy:
-
-[source,sh,role=execute]
-----
-rosa list machinepools --cluster $CLUSTER_NAME
-----
-
-.Sample Output
-[source,text,options=nowrap]
-----
-ID   AUTOSCALING  REPLICAS  INSTANCE TYPE  TAINTS
-gpu  No           1         g6e.xlarge     nvidia.com/gpu=present:NoSchedule
-----
-
-[source,sh,role=execute]
-----
-oc get llminferenceservice qwen3 -n llm-serving \
-  -o jsonpath='{.status.url}'
-----
-
-[NOTE]
-====
-This workshop uses a fixed single-node pool. In a production scenario you would use KEDA watching the `vllm:num_requests_waiting` metric to trigger additional GPU node provisioning automatically. See the conclusion for links.
-====
-
-=== Namespace-Level Usage Visibility
-
-The Platform Engineer can see resource consumption by namespace:
-
-[source,sh,role=execute]
-----
-# GPU usage by namespace (who is consuming the GPU?)
-oc adm top pod -n llm-serving --use-protocol-buffers 2>/dev/null || \
-oc get pod -n llm-serving -o wide
-----
-
-[source,sh,role=execute]
-----
-# Developer namespace resource usage
-oc adm top pod -n fortune-cookie-dev 2>/dev/null || \
-oc get pod -n fortune-cookie-dev
-----
-
-== Part 4: Token-Based Governance with Models-as-a-Service
-
-So far you have watched GPU metrics. Token consumption is the unit that actually drives LLM cost. OpenShift AI 3.5 Models-as-a-Service (subscription model, not the 3.3 tiers) plus Connectivity Link enforce that at the gateway.
-
-=== What this cluster already has
-
-Lab 1.4 created the subscription and auth policy. Open the dashboard at `https://rh-ai.apps.<apps-domain>/` to browse the catalog and keys, or inspect the same objects with `oc`:
+Lab 1.3 created the subscription. Open `https://rh-ai.apps.<apps-domain>/` or inspect with `oc`.
 
 * `MaaSAuthPolicy/qwen3-access` — `system:authenticated` may call Qwen3.8
-* `MaaSSubscription/qwen3-workshop` — **5 000 000 tokens / 24h** (workshop-generous; tighten this for production)
+* `MaaSSubscription/qwen3-workshop` — *5 000 000 tokens / 24h* (workshop-generous)
 * Kuadrant `TokenRateLimitPolicy/maas-trlp-qwen3` — generated from the subscription
-* `sk-oai-` keys minted against that subscription
+* `sk-oai-` keys bound to that subscription
 
-Both a subscription *and* an auth policy are required. Auth only → HTTP 429 (no quota). Subscription only → HTTP 403 (no gateway access).
-
-=== Inspect the live objects
+Auth only → HTTP 429 (no quota). Subscription only → HTTP 403 (no gateway access). Both are required.
 
 [source,sh,role=execute]
 ----
@@ -220,8 +114,6 @@ oc get maasmodelref -n llm-serving
 oc get maasauthpolicy,maassubscription -n models-as-a-service
 oc get tokenratelimitpolicy -n llm-serving
 ----
-
-The subscription YAML (quota lives per model ref, not at spec root):
 
 [source,yaml]
 ----
@@ -243,97 +135,62 @@ spec:
           window: 24h
 ----
 
-[TIP]
-====
-MaaS + Limitador give you the full governance stack: *authentication* (who), *quota* (how much), *tracking* (tokens used), *enforcement* (HTTP 429 when over budget).
-====
-
-=== Token Consumption PromQL
-
-With User Workload Monitoring enabled, vLLM and MaaS metrics are scrapeable:
-
 [source,promql]
 ----
-# Total tokens generated per namespace over the last hour
-sum by (namespace) (
-  increase(vllm:generation_tokens_total[1h])
-)
+sum by (namespace) (increase(vllm:generation_tokens_total[1h]))
+sum by (namespace) (increase(vllm:prompt_tokens_total[1h]))
 ----
 
-[source,promql]
-----
-# Prompt tokens consumed (input cost driver)
-sum by (namespace) (
-  increase(vllm:prompt_tokens_total[1h])
-)
-----
-
-=== Cost Model
+Rough cost model for this L40S (~$1.65/hr on-demand, ~43 tok/s decode):
 
 [source]
 ----
-GPU instance  : g6e.xlarge (L40S) ~$1.65/hr (on-demand)
-Token rate    : ~43 tokens/sec decode on this L40S (single stream)
-Cost/token    : $1.65 / 3600s / 43 tok ≈ ~$0.000011 / token
-
-Example workloads (per hour):
-  Developer OpenCode session : ~50 000 tokens → ~$0.55
-  Fortune Cookie app (100 rq): ~4 000 tokens  → ~$0.04
-  10 concurrent developers   : ~500 000 tokens → ~$5.50
+Cost/token           ≈ $0.000011
+OpenCode session     ≈ 50 000 tokens → ~$0.55
+10 concurrent devs   ≈ 500 000 tokens → ~$5.50 / hour of chatting
 ----
 
-Reserved or Spot GPU instances on ROSA reduce these costs by 40-70%.
-
-=== LLM Governance at Scale — Summary
+The Fortune Cookie route is not on this invoice. Token quota on the MaaS gateway is how you stop an afternoon of `/build` from becoming an unbounded GPU bill.
 
 [cols="1,2", options="header"]
 |===
 | Capability | Mechanism
 
-| *Per-group token quotas*
+| Per-group token quotas
 | `MaaSSubscription` → Kuadrant `TokenRateLimitPolicy`
 
-| *Self-service API keys*
-| Dashboard (Gen AI / Models-as-a-Service) or `POST /maas-api/v1/api-keys` (OpenShift token in, one `sk-oai-` key out)
+| Self-service API keys
+| Dashboard or `POST /maas-api/v1/api-keys`
 
-| *Usage tracking*
-| vLLM `generation_tokens_total` / `prompt_tokens_total`; Limitador token counters
+| Usage tracking
+| vLLM token counters + Limitador
 
-| *Chargeback*
-| Prometheus → cost model → cloud billing integration
-
-| *Model versioning*
-| Multiple `LLMInferenceService` + `MaaSModelRef` objects; Argo CD controls promotion
-
-| *Audit trail*
-| Gateway access logs + vLLM request logs
+| Chargeback
+| Prometheus → cost model → cloud billing
 |===
 
-== ✅ Module 3 Checkpoint
+== ✅ Act 3 checkpoint
 
 [source,sh,role=execute]
 ----
-# GPU node is running and monitored
 oc get node -l node.kubernetes.io/instance-type=g6e.xlarge
 
-# LLMInferenceService and MaaS catalog are healthy
 oc get llminferenceservice,maasmodelref -n llm-serving
 
-# Fortune Cookie app is still serving
 curl -s https://$(oc get route fortune-cookie -n fortune-cookie-dev \
   -o jsonpath='{.spec.host}')/healthz
 ----
 
-.Expected Output
+.Expected
 [source,text,options=nowrap]
 ----
 NAME                                      STATUS   ROLES    AGE
-ip-10-x-x-x.eu-west-1.compute.internal   Ready    worker   45m
+ip-10-x-x-x.eu-west-1.compute.internal   Ready    worker   ...
 
 NAME     URL                         READY
 qwen3    https://maas.apps.../llm-serving/qwen3   True
 
-Even the smallest deployment, monitored well, reveals the architecture of great systems.
+{"status":"ok"}
 ----
 
 ➡️ Move on to *Conclusion & What's Next*.

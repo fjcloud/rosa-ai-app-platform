@@ -1,8 +1,8 @@
-= Module 4 — Conclusion & What's Next
+= Conclusion & What's Next
 
 *Congratulations!* 🥠
 
-You have completed the *AI-Powered Developer Platform on ROSA* workshop. In under three hours, you deployed an end-to-end AI developer platform and shipped a real application through it.
+You finished the Monday story: an in-cluster coding agent on ROSA, no public LLM. In a half day you published Qwen3.8 as a service, shipped Fortune Cookie from a prompt, and looked at the GPU and token bill.
 
 == What You Built
 

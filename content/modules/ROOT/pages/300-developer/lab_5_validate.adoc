@@ -1,4 +1,4 @@
-= Lab 2.4 — Validate Best Practices with OpenCode
+= Lab 2.3 — Audit with OpenCode
 
 Your application is live. But did OpenCode actually follow all the platform rules from `AGENTS.md`? Use the same LLM that wrote the code to *audit* it — and automatically fix any gaps.
 
@@ -53,14 +53,7 @@ requests and limits set exactly as specified in AGENTS.md:
 If any values are missing or incorrect, fix them now and show me the corrected section.
 ----
 
-If OpenCode patches the file, redeploy:
-
-[source,sh,role=execute]
-----
-ansible-playbook scripts/git-push.yml
-ansible-playbook scripts/build-image.yml
-ansible-playbook scripts/gitops-deploy.yml
-----
+If OpenCode patches the file, ask it to ship the change using the "Ship a later change" section in AGENTS.md (git push, new PipelineRun, rollout restart).
 
 == Audit 2: Observability
 
@@ -205,7 +198,7 @@ The governance is real — the running pod has the right security context, probe
 
 *This is AI-native platform engineering.*
 
-== Module 2 Complete 🎉
+== Act 2 complete 🎉
 
 [cols="1,2", options="header"]
 |===
@@ -233,4 +226,4 @@ The governance is real — the running pod has the right security context, probe
 | ✅
 |===
 
-➡️ Move on to *Module 3: LLM Observability & Governance*.
+➡️ Move on to *Act 3: The bill* — GPU watts and token quota from this afternoon.

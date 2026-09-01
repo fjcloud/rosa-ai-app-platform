@@ -1,6 +1,6 @@
 # E2E Workshop Validation
 
-Two scripts, matching the two workshop personas. Neither needs the Dev Spaces UI.
+Maps to workshop Act 1 (labs 1.1–1.4) and Act 2 (labs 2.1–2.3). Neither needs the Dev Spaces UI.
 
 | Script | Persona | What it checks |
 |--------|---------|----------------|

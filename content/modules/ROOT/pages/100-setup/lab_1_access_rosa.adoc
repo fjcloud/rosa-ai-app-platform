@@ -1,8 +1,8 @@
-= Module 0 — Access Your ROSA Cluster
+= Act 0 — Get in
 
-In this first lab you will log into your pre-provisioned Red Hat OpenShift Service on AWS (ROSA) cluster, verify your CLI tools are working, and review the overall workshop architecture before getting started.
+Log into your pre-provisioned ROSA cluster, verify `oc` and `rosa`, and confirm you are ready for the Monday story: an *in-cluster* coding agent. Source code stays on this cluster — no public LLM.
 
-Your cluster was provisioned before the workshop began — you do not need to create it. This lets you spend your time on what matters: deploying AI infrastructure and building applications.
+Your cluster was provisioned before the workshop began. You do not create it.
 
 [NOTE]
 ====
@@ -98,7 +98,7 @@ ip-10-0-2-45.eu-west-1.compute.internal     Ready    worker                 3h  
 ip-10-0-3-12.eu-west-1.compute.internal     Ready    worker                 3h    v1.29.8
 ----
 +
-You should see two or three worker nodes. *No GPU node yet* — you will create it in the next module.
+You should see two or three worker nodes. *No GPU node yet* — you will create it in Lab 1.1.
 
 . Verify the `rosa` CLI is available and authenticated:
 +
@@ -146,4 +146,4 @@ You now have:
 * [x] Admin access to the OpenShift Web Console
 * [x] A clear picture of what you are building
 
-➡️ Move on to *Module 1 — Platform Engineer* (Lab 1.1).
+➡️ Move on to *Act 1 — Stand up the agent* (Lab 1.1).
