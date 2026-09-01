@@ -20,8 +20,9 @@ GIT_SERVER="${GIT_SERVER:-https://gitpop.apps.sno.msl.cloud}"
 APP_NAME="${APP_NAME:-fortune-cookie}"
 E2E_NS="${E2E_NS:-workshop-e2e}"
 TEMPLATE_URL="${TEMPLATE_URL:-https://github.com/fjcloud/go-app-template}"
-LLM_HOST="${LLM_HOST:-maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || true)}"
-LLM_URL="${LLM_URL:-https://${LLM_HOST}/llm-serving/qwen3/v1}"
+# LLM_HOST / LLM_URL resolved after oc is confirmed (cluster id changes per ROSA cluster)
+LLM_HOST="${LLM_HOST:-}"
+LLM_URL="${LLM_URL:-}"
 LLM_MODEL="qwen3"
 LLM_KEY="${LLM_KEY:-}"
 GITPOP_BIN="/tmp/gitpop-e2e"   # still needed for the gitpop helper function
@@ -69,6 +70,11 @@ info "User:    $(oc whoami)"
 info "Git server: $GIT_SERVER"
 
 oc cluster-info &>/dev/null || fail "Not connected to a cluster"
+# shellcheck source=../deploy/cluster-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/deploy/cluster-env.sh"
+LLM_HOST="${LLM_HOST:-$(workshop_maas_host)}"
+LLM_URL="${LLM_URL:-https://${LLM_HOST}/llm-serving/qwen3/v1}"
+info "MaaS:    $LLM_URL"
 check_llm_ready || warn "LLMInferenceService not Ready — deploy steps will still run but LLM prompts may fail"
 LLM_KEY="${LLM_KEY:-$(oc get secret ai-provider-openai-api-key -n openshift-operators -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null | base64 -d || true)}"
 
@@ -122,6 +128,7 @@ oc run "$DEV_POD" \
   --env="TEMPLATE_URL=$TEMPLATE_URL" \
   --env="APP_NAME=$APP_NAME" \
   --env="LLM_URL=$LLM_URL" \
+  --env="OPENAI_BASE_URL=$LLM_URL" \
   --env="LLM_MODEL=$LLM_MODEL" \
   --env="OPENAI_API_KEY=$LLM_KEY" \
   --env="HOME=/home/user" \
@@ -177,7 +184,7 @@ cfg = {
       'npm': '@ai-sdk/openai-compatible',
       'name': 'Qwen3.8',
       'options': {
-        'baseURL': os.environ.get('LLM_URL', 'https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1'),
+        'baseURL': os.environ.get('LLM_URL') or os.environ.get('OPENAI_BASE_URL') or '',
         'apiKey': os.environ.get('OPENAI_API_KEY', ''),
         'chunkTimeout': 120000,
         'timeout': 600000

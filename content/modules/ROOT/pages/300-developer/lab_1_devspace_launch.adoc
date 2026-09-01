@@ -113,7 +113,7 @@ curl -sS "https://${MAAS_HOST}/v1/models" \
 +
 [TIP]
 ====
-`$OPENAI_API_KEY` is the MaaS `sk-oai-` key the platform minted into Secret `ai-provider-openai-api-key`. OpenCode calls the path-based URL `/llm-serving/qwen3/v1` so the API model id stays `qwen3`.
+`$OPENAI_API_KEY` is the MaaS `sk-oai-` key the platform minted into Secret `ai-provider-openai-api-key`. `$OPENAI_BASE_URL` is the live MaaS path (`https://maas.<apps-domain>/llm-serving/qwen3/v1`) — `configure-platform.sh` binds the Gateway cert to this cluster, so the id in the secret name changes every ROSA cluster. OpenCode calls that URL so the API model id stays `qwen3`.
 ====
 
 . Start OpenCode:
@@ -147,7 +147,7 @@ Expected content:
       "npm": "@ai-sdk/openai-compatible",
       "name": "Qwen3.8",
       "options": {
-        "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
+        "baseURL": "{env:OPENAI_BASE_URL}",
         "apiKey": "{env:OPENAI_API_KEY}",
         "chunkTimeout": 120000,
         "timeout": 600000

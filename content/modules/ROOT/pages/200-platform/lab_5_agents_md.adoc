@@ -1,6 +1,6 @@
 = Lab 1.4 — Hand the Keys
 
-The GPU is warming Qwen3.8. Your job now is to hand the afternoon developer a *launch URL* and a 43-line runbook — not a wiki, not Ansible, not a tour of every Kustomize file.
+The GPU is warming Qwen3.8. Your job now is to hand the afternoon developer a *launch URL* and a short runbook (~45 lines) — not a wiki, not Ansible, not a tour of every Kustomize file.
 
 The template is already on GitHub: https://github.com/fjcloud/go-app-template[fjcloud/go-app-template].
 
@@ -44,11 +44,12 @@ wc -l AGENTS.md
 cat AGENTS.md
 ----
 
-You should see about 43 lines. Notice:
+You should see about 45 lines. Notice:
 
 * *Files YOU must generate* — `main.go`, `go.mod`, `Dockerfile` with an exact two-stage template
 * *Files already in the repository* — do not rewrite `deploy/`, `pipeline/`, `gitops/`, `devfile.yaml`, or `opencode.json`
 * *Three deploy phases* — Git server → Tekton PipelineRun → Argo CD Application
+* *Namespaces* — `${APP_NAME}-build` and `${APP_NAME}-dev` only. Never namespace `default` for the app, Argo CD, or the Application.
 
 [cols="1,2,2", options="header"]
 |===
@@ -81,7 +82,7 @@ oc get configmap opencode-workspace-config -n "$CHE_NS" \
   -o jsonpath='{.data.opencode\.json}' | python3 -m json.tool
 ----
 
-You should see `baseURL` at `https://maas.<apps-domain>/llm-serving/qwen3/v1`, provider/model *name* `Qwen3.8`, API id `qwen3`, and `limit.output: 8192`.
+You should see `baseURL` `{env:OPENAI_BASE_URL}` (mint + `configure-platform.sh` set that env to `https://maas.<apps-domain>/llm-serving/qwen3/v1`), provider/model *name* `Qwen3.8`, API id `qwen3`, and `limit.output: 8192`.
 
 [NOTE]
 ====
@@ -124,7 +125,7 @@ Workspaces created from an older template still have Ansible scripts *or* a `qwe
 | ✅ Gateway + `sk-oai-` key; model finishing load in the background
 
 | Go app template
-| ✅ 43-line `AGENTS.md`; Dev Spaces URL ready to paste
+| ✅ ~45-line `AGENTS.md`; Dev Spaces URL ready to paste
 |===
 
 Switch persona — move on to *Act 2: first day* (Lab 2.1).

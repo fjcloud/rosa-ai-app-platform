@@ -119,7 +119,7 @@ If any `wait` times out, check `oc get pods -n <namespace>`. Common causes: imag
 
 == Step 1: Create Platform Instances
 
-This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (Authorino TLS + dashboard GPU taints and MaaS UI flags).
+This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (Authorino TLS, bind the Gateway to *this* cluster's apps domain and wildcard cert, dashboard GPU taints and MaaS UI flags).
 
 [source,sh,role=execute]
 ----
@@ -135,8 +135,9 @@ checluster.org.eclipse.che/devspaces created
 gateway.gateway.networking.k8s.io/maas-default-gateway created
 kuadrant.kuadrant.io/kuadrant created
 Authorino TLS configured.
+MaaS Gateway bound to this cluster.
 Dashboard GPU-node tolerations and MaaS UI flags applied.
-Platform instances configured (Authorino TLS + dashboard).
+Platform instances configured (Authorino TLS + MaaS Gateway + dashboard).
 ----
 
 === What was created
@@ -254,7 +255,7 @@ The image is *Red Hat AI Inference* CUDA (`rhaii/vllm-cuda-rhel9:3.5.0`) — not
 
 === Let the model load in the background
 
-A cold cluster downloads ~18 GiB from Hugging Face. This workshop PVC is already populated, so vLLM mainly loads weights into GPU memory (~5–8 minutes).
+A cold cluster downloads ~18 GiB from Hugging Face into PVC `qwen-model-cache` (`HF_HOME=/opt/models`). If that cache is empty, first Ready can take 10–20 minutes. If weights are already on the PVC, vLLM mainly loads them into GPU memory (~5–8 minutes).
 
 [source,sh,role=execute]
 ----

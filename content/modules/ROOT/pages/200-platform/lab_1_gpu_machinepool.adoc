@@ -73,6 +73,11 @@ rosa create machine-pool \
 I: Machine pool 'gpu' created successfully on cluster 'rosa-abc12'
 I: To view all machine pools, run 'rosa list machinepools -c rosa-abc12'
 ----
++
+[WARNING]
+====
+If AWS returns `InsufficientInstanceCapacity` for `$AWS_AZ`, delete the pool and recreate it in another zone of the same region (`rosa delete machine-pool --cluster $CLUSTER_NAME --machinepool gpu`, then `rosa create machine-pool` with a different `--availability-zone`). GPU instance types are not available in every AZ at all times.
+====
 
 . Start a background wait for the GPU node to become Ready. This runs in the background — you will continue working on other labs while it completes:
 +

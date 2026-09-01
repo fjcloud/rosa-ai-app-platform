@@ -53,12 +53,14 @@ requests and limits set exactly as specified in AGENTS.md:
 If any values are missing or incorrect, fix them now and show me the corrected section.
 ----
 
-If OpenCode patches the file, ask it to ship the change using the "Ship a later change" section in AGENTS.md (git push, new PipelineRun, rollout restart).
+If OpenCode patches the file, ask it to ship the change using the "Later change" steps in AGENTS.md (git push, new PipelineRun, rollout restart).
 
 == Audit 2: Observability
 
 [source,text,role=execute]
 ----
+/build
+
 Verify that the Deployment in deploy/base/deployment.yaml has both a liveness probe
 and a readiness probe configured:
   - livenessProbe:  HTTP GET /healthz on port 8080, initialDelaySeconds 5
@@ -85,6 +87,8 @@ curl -s https://${ROUTE}/healthz
 
 [source,text,role=execute]
 ----
+/build
+
 Perform a security and TLS audit of deploy/base/:
 
 1. Deployment: verify the pod securityContext sets runAsNonRoot: true and

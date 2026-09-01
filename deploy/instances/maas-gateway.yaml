@@ -1,5 +1,6 @@
-# ROSA wildcard cert from the default IngressController. Recreate this
-# Gateway if the cluster's defaultCertificate secret name changes.
+# ROSA wildcard cert from the default IngressController.
+# hostname and certificateRefs.name are placeholders — configure-maas-gateway.sh
+# replaces them from this cluster's Ingress domain and infrastructureName.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -16,7 +17,7 @@ spec:
   gatewayClassName: openshift-default
   listeners:
     - name: https
-      hostname: maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com
+      hostname: maas.apps.cluster.example.com
       port: 443
       protocol: HTTPS
       allowedRoutes:
@@ -37,4 +38,4 @@ spec:
         certificateRefs:
           - group: ""
             kind: Secret
-            name: 2shfd14qdhitbdi2e1l4qp7frbfuglv9-primary-cert-bundle-secret
+            name: cluster-wildcard-cert

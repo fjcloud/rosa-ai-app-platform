@@ -73,7 +73,9 @@ info "Template: $TEMPLATE_URL"
 
 oc cluster-info &>/dev/null || fail "Not connected to a cluster"
 ok "Cluster reachable"
-MAAS_HOST="${MAAS_HOST:-maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')}"
+# shellcheck source=../deploy/cluster-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/deploy/cluster-env.sh"
+MAAS_HOST="${MAAS_HOST:-$(workshop_maas_host)}"
 LLM_URL_MAAS="https://${MAAS_HOST}/llm-serving/${LLM_IS}/v1"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -222,16 +224,18 @@ check "AI registry includes OpenCode injector" \
   "oc get configmap ai-tool-registry -n openshift-operators -o jsonpath='{.data.registry\.json}' | grep -q 'opencodeai/opencode'"
 check "OpenCode workspace config ConfigMap exists" \
   "oc get configmap opencode-workspace-config -n openshift-operators"
-check "OpenCode config points at MaaS gateway" \
-  "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | grep -q 'maas.apps'"
+check "OpenCode config uses OPENAI_BASE_URL (cluster-agnostic)" \
+  "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | grep -q '{env:OPENAI_BASE_URL}'"
 check "OpenCode MaaS API key Secret exists" \
   "oc get secret ai-provider-openai-api-key -n openshift-operators"
+check "MaaS secret injects OPENAI_BASE_URL" \
+  "oc get secret ai-provider-openai-api-key -n openshift-operators -o jsonpath='{.data.OPENAI_BASE_URL}' | grep -q ."
 check "VS Code editor config disables GitHub Copilot" \
   "oc get configmap vscode-editor-configurations -n openshift-operators -o jsonpath='{.data.settings\.json}' | grep -q 'chat.disableAIFeatures'"
 check "Continue is a recommended VS Code extension" \
   "oc get configmap vscode-editor-configurations -n openshift-operators -o jsonpath='{.data.extensions\.json}' | grep -q 'Continue.continue'"
-check "Continue config points at MaaS gateway" \
-  "oc get configmap continue-workspace-config -n openshift-operators -o jsonpath='{.data.config\.yaml}' | grep -q 'maas.apps'"
+check "Continue config uses OPENAI_BASE_URL (cluster-agnostic)" \
+  "oc get configmap continue-workspace-config -n openshift-operators -o jsonpath='{.data.config\.yaml}' | grep -q 'OPENAI_BASE_URL'"
 
 # NFD NodeFeatureDiscovery
 check "NodeFeatureDiscovery nfd-instance exists" \

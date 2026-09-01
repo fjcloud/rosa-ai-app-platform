@@ -5,7 +5,7 @@
 # Developers call Models-as-a-Service (not the predictor Service). The API model id
 # stays "qwen3"; the display name is Qwen3.8. After MaaS is Ready, mint a key:
 #   bash deploy/inference/mint-workshop-key.sh
-# That writes Secret ai-provider-openai-api-key (OPENAI_API_KEY / sk-oai-...).
+# That writes Secret ai-provider-openai-api-key (OPENAI_API_KEY + OPENAI_BASE_URL).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -44,7 +44,7 @@ data:
           "npm": "@ai-sdk/openai-compatible",
           "name": "Qwen3.8",
           "options": {
-            "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
+            "baseURL": "{env:OPENAI_BASE_URL}",
             "apiKey": "{env:OPENAI_API_KEY}",
             "chunkTimeout": 120000,
             "timeout": 600000
@@ -71,7 +71,7 @@ data:
           "npm": "@ai-sdk/openai-compatible",
           "name": "Qwen3.8",
           "options": {
-            "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
+            "baseURL": "{env:OPENAI_BASE_URL}",
             "apiKey": "{env:OPENAI_API_KEY}",
             "chunkTimeout": 120000,
             "timeout": 600000
@@ -115,7 +115,7 @@ data:
           "npm": "@ai-sdk/openai-compatible",
           "name": "Qwen3.8",
           "options": {
-            "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
+            "baseURL": "{env:OPENAI_BASE_URL}",
             "apiKey": "{env:OPENAI_API_KEY}",
             "chunkTimeout": 120000,
             "timeout": 600000

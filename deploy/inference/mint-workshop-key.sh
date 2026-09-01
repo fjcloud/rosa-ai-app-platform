@@ -3,14 +3,18 @@
 # for Dev Spaces (OpenCode / Continue). Requires cluster-admin (or any user
 # in a group listed on MaaSSubscription/qwen3-workshop).
 set -euo pipefail
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=../cluster-env.sh
+source "${SCRIPT_DIR}/../cluster-env.sh"
 
 SECRET_NS="${SECRET_NS:-openshift-operators}"
 SECRET_NAME="${SECRET_NAME:-ai-provider-openai-api-key}"
 SUBSCRIPTION="${SUBSCRIPTION:-qwen3-workshop}"
 KEY_NAME="${KEY_NAME:-workshop-opencode}"
 
-MAAS_HOST="${MAAS_HOST:-maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')}"
+MAAS_HOST="${MAAS_HOST:-$(workshop_maas_host)}"
 MAAS_API_URL="https://${MAAS_HOST}"
+OPENAI_BASE_URL="${OPENAI_BASE_URL:-${MAAS_API_URL}/llm-serving/qwen3/v1}"
 
 echo "Minting MaaS key '${KEY_NAME}' on ${MAAS_API_URL} (subscription=${SUBSCRIPTION})"
 
@@ -38,6 +42,7 @@ fi
 oc create secret generic "${SECRET_NAME}" \
   -n "${SECRET_NS}" \
   --from-literal=OPENAI_API_KEY="${API_KEY}" \
+  --from-literal=OPENAI_BASE_URL="${OPENAI_BASE_URL}" \
   --dry-run=client -o yaml | oc apply -f -
 
 # Restore Che injector labels after apply
@@ -54,4 +59,5 @@ oc annotate secret "${SECRET_NAME}" -n "${SECRET_NS}" \
   --overwrite >/dev/null
 
 echo "Stored key prefix ${API_KEY:0:12}... in secret/${SECRET_NAME} (${SECRET_NS})"
+echo "OPENAI_BASE_URL=${OPENAI_BASE_URL}"
 echo "Smoke: curl -sS ${MAAS_API_URL}/v1/models -H 'Authorization: Bearer \$OPENAI_API_KEY'"

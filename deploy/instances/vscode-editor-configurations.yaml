@@ -61,7 +61,7 @@ data:
       - name: Qwen3.8
         provider: openai
         model: qwen3
-        apiBase: https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1
+        apiBase: ${OPENAI_BASE_URL}
         apiKey: ${OPENAI_API_KEY}
         roles:
           - chat
