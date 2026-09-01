@@ -80,12 +80,14 @@ opencode 0.x.x
 gitpop version x.x.x
 ----
 
-. Verify OpenCode can reach Models-as-a-Service:
+. Verify OpenCode can reach Models-as-a-Service. Look up the MaaS Gateway hostname (this is a Gateway API front door, not a cluster Ingress domain and not an OpenShift `Route`):
 +
 [source,sh,role=execute]
 ----
-curl -sS \
-  "https://maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')/v1/models" \
+MAAS_HOST=$(oc get gateway maas-default-gateway -n openshift-ingress \
+  -o jsonpath='{.spec.listeners[0].hostname}')
+
+curl -sS "https://${MAAS_HOST}/v1/models" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   | python3 -m json.tool
 ----
@@ -127,11 +129,11 @@ Press `q` to exit OpenCode when needed.
 
 == Understanding the OpenCode Configuration
 
-The platform mounts `opencode.json` into every workspace (not from the Git template). Verify it:
+OpenCode reads **project** `opencode.json` first (it overrides the platform mount under `~/.config/opencode`). Verify the file in the template:
 
 [source,sh,role=execute]
 ----
-cat ~/.config/opencode/opencode.json
+cat ${PROJECT_SOURCE}/opencode.json
 ----
 
 Expected content:
@@ -145,7 +147,7 @@ Expected content:
       "npm": "@ai-sdk/openai-compatible",
       "name": "Qwen3.8",
       "options": {
-        "baseURL": "https://maas.<apps-domain>/llm-serving/qwen3/v1",
+        "baseURL": "https://maas.apps.rosa.fja-hcp.70qk.p3.openshiftapps.com/llm-serving/qwen3/v1",
         "apiKey": "{env:OPENAI_API_KEY}",
         "chunkTimeout": 120000,
         "timeout": 600000
@@ -168,6 +170,8 @@ Expected content:
 
 OpenCode still reads `AGENTS.md` from the project directory at the start of every session. That is how the Platform Engineer's rules are enforced.
 
+If `opencode.json` still mentions `qwen36` or `llm-inference`, this workspace cloned an old template. Run `git pull origin main` (or create a new Dev Space).
+
 `limit.output` must stay well below `--max-model-len` (40960). OpenCode's default 32 000 output tokens would overflow the vLLM context window.
 
 == ✅ Checkpoint
@@ -176,7 +180,9 @@ OpenCode still reads `AGENTS.md` from the project directory at the start of ever
 ----
 opencode --version && \
 gitpop --version 2>/dev/null || true && \
-curl -sS "https://maas.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')/v1/models" \
+MAAS_HOST=$(oc get gateway maas-default-gateway -n openshift-ingress \
+  -o jsonpath='{.spec.listeners[0].hostname}') && \
+curl -sS "https://${MAAS_HOST}/v1/models" \
   -H "Authorization: Bearer $OPENAI_API_KEY" | \
   python3 -c "import sys,json; m=json.load(sys.stdin); print('LLM ready:', m['data'][0]['modelDetails']['displayName'])"
 ----

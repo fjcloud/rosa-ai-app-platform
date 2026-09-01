@@ -27,7 +27,7 @@ ls
 .Expected
 [source,console]
 ----
-AGENTS.md  deploy/  devfile.yaml  gitops/  pipeline/
+AGENTS.md  deploy/  devfile.yaml  gitops/  opencode.json  pipeline/
 ----
 
 [source,sh,role=execute]

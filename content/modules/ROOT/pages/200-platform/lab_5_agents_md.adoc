@@ -20,8 +20,11 @@ The template is already on GitHub: https://github.com/fjcloud/go-app-template[fj
 | `AGENTS.md`
 | The only runbook OpenCode reads. Generate `main.go` / `go.mod` / `Dockerfile`, then `git` / `gitpop` / `oc`.
 
+| `opencode.json`
+| Pins OpenCode to in-cluster Qwen3.8 via MaaS. The API key is `$OPENAI_API_KEY` (injected). The OpenCode *binary* is still injected by Dev Spaces.
+
 | `devfile.yaml`
-| Dev Spaces workspace. Installs gitpop. OpenCode is *not* in the template — the platform injects it.
+| Dev Spaces workspace. Installs gitpop.
 
 | `deploy/` `pipeline/` `gitops/`
 | Golden-path Kustomize. The model applies it; it must not rewrite it (except the Deployment `image:` at deploy time).
@@ -44,7 +47,7 @@ cat AGENTS.md
 You should see about 43 lines. Notice:
 
 * *Files YOU must generate* — `main.go`, `go.mod`, `Dockerfile` with an exact two-stage template
-* *Files already in the repository* — do not rewrite `deploy/`, `pipeline/`, `gitops/`, or `devfile.yaml`
+* *Files already in the repository* — do not rewrite `deploy/`, `pipeline/`, `gitops/`, `devfile.yaml`, or `opencode.json`
 * *Three deploy phases* — Git server → Tekton PipelineRun → Argo CD Application
 
 [cols="1,2,2", options="header"]
@@ -68,7 +71,7 @@ image::cicd-gitops.png[Prompt to production, align="center"]
 
 == Step 2: Confirm OpenCode is wired to MaaS
 
-OpenCode is injected from the AI tool registry you applied in Lab 1.3. You are checking the platform, not the template.
+OpenCode is injected from the AI tool registry you applied in Lab 1.3. The *binary* comes from the platform. The *model pin* is `opencode.json` in the template — that file wins over `~/.config/opencode`.
 
 [source,sh,role=execute]
 ----
@@ -98,11 +101,11 @@ echo "  $DEVSPACES_URL/#$TEMPLATE_URL?ai-provider=opencodeai/opencode"
 echo "============================================"
 ----
 
-When a developer opens that URL, Dev Spaces clones the template, injects OpenCode, mounts `opencode.json`, installs gitpop, and opens VS Code in the browser. They talk to the model; `AGENTS.md` is the runbook.
+When a developer opens that URL, Dev Spaces clones the template (including `opencode.json`), injects the OpenCode binary, installs gitpop, and opens VS Code in the browser. They talk to Qwen3.8; `AGENTS.md` is the runbook.
 
 [IMPORTANT]
 ====
-Workspaces created from an older template still have Ansible scripts. Create a *new* workspace from the URL above — restarting an old workspace is not enough.
+Workspaces created from an older template still have Ansible scripts *or* a `qwen36` `opencode.json`. Create a *new* workspace from the URL above, or in an existing workspace run `git pull origin main`. Restarting an old workspace is not enough.
 ====
 
 == Act 1 complete
