@@ -71,48 +71,22 @@ Read AGENTS.md and produce a complete implementation plan:
 Do not write any code yet. Only plan.
 ----
 
-Review the plan. Adjust if needed. When satisfied, proceed to Session 2.
+Review the plan. Adjust if needed. Stay in this OpenCode session — the plan is the context for `/build`. Do not start a new session (`Ctrl+N`).
 
 ---
 
 == Session 2: Build and Deploy
 
-This session generates code, verifies the local build, then runs the deploy phases in `AGENTS.md`. Start a new session (`Ctrl+N`):
+Switch to the build agent in the *same* session. The plan already has the file list, handlers, Dockerfile, and deploy steps. `AGENTS.md` already has the `git` / `oc` commands. You do not restate them.
 
 [source,text,role=execute]
 ----
 /build
 
-Implement the Fortune Cookie application following AGENTS.md strictly.
-
-== Phase 1: Generate code
-
-Generate these files:
-1. main.go       — HTTP server on :8080, / (HTML fortune) and /healthz handlers
-2. go.mod        — module: fortune-cookie, go 1.22
-3. Dockerfile    — use the exact two-stage template from AGENTS.md
-                   (ubi9/go-toolset builder → ubi9/ubi-minimal runtime, USER 1001)
-
-After writing every file, run:
-  CGO_ENABLED=0 go build -buildvcs=false -o /dev/null .
-
-Fix any compile error before continuing. Show the build output.
-
-== Phase 2: Deploy
-
-Once the build succeeds, follow the three deploy phases in AGENTS.md in order
-(gitpop + git push, Tekton PipelineRun, Argo CD Application).
-Use git / gitpop / oc — do not create Ansible playbooks.
-
-Wait for each phase to succeed before the next.
-If a command fails, read the error and fix the root cause.
-
-At the end, print:
-- The app route URL
-- The personal Argo CD console URL
+Implement the plan.
 ----
 
-OpenCode works through both phases. You will see the Dockerfile, the local Go build, then `gitpop` / `oc` from `AGENTS.md`.
+OpenCode writes the files, compiles, then ships from `AGENTS.md`. When it is done it should print the app route and the Argo CD console URL.
 
 === Checkpoint — the app is live
 
