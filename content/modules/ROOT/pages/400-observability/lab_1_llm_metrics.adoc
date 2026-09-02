@@ -13,100 +13,113 @@ The Fortune Cookie *app* does not call Qwen3.8 — it serves hard-coded strings.
 
 image::the-bill-observability.png[The bill — GPU and tokens, align="center"]
 
+Stay in the *Administrator* perspective of the OpenShift Web Console (Act 0). Every graph in this lab is there. The OpenShift AI dashboard is only for the token quota, not for GPU charts.
+
 == Two surfaces
 
 [cols="1,2", options="header"]
 |===
-| Dashboard | What it shows
+| Where | What you open
 
-| *NVIDIA DCGM Exporter Dashboard*
-| GPU % , VRAM, temperature, watts. Loaded by `deploy/instances` (`nvidia-dcgm-exporter-dashboard` ConfigMap).
+| OpenShift Web Console → *Observe → Dashboards*
+| *NVIDIA DCGM Exporter Dashboard* — GPU %, framebuffer, temperature, watts
 
-| *vLLM + MaaS*
-| Tokens/sec, time-to-first-token, concurrent requests, subscription window (5M tokens / 24h). Over quota → HTTP 429.
+| OpenShift Web Console → *Observe → Metrics*
+| vLLM PromQL — tokens/sec, time-to-first-token, in-flight requests
+
+| OpenShift AI → *Models as a service*
+| Catalog, the `sk-oai-` key, and the 5M tokens / 24h subscription
 |===
 
-== Part 1: NVIDIA DCGM
+These series are already on the cluster (DCGM from the GPU Operator, `vllm:…` from the Qwen3.8 pod). You are not installing Prometheus.
 
-. In the OpenShift Web Console: *Observe → Dashboards*
-. Dashboard dropdown: `NVIDIA DCGM Exporter Dashboard`
-. Node filter: the `g6e.xlarge` GPU node
+== Part 1: NVIDIA DCGM (Web Console dashboards)
 
-[cols="1,2,1", options="header"]
+. Open the OpenShift Web Console and stay in *Administrator*.
+. Left nav: *Observe → Dashboards*.
+. *Dashboard* dropdown: *NVIDIA DCGM Exporter Dashboard* (ConfigMap `nvidia-dcgm-exporter-dashboard` in `openshift-config-managed`).
+. At the top of the dashboard, set:
+** *Instance* — the GPU worker (the series labelled `NVIDIA L40S` / `exported_namespace=llm-serving`). There is no “instance type” filter; pick that instance, not a CPU worker.
+** *GPU* — `0` (this workshop has one L40S).
+. Time range: last few hours so you see model load *and* the OpenCode afternoon.
+
+Read these four panels (those names are on the dashboard):
+
+[cols="1,2,2", options="header"]
 |===
-| Metric | What it tells you | Healthy range
+| Panel | What it tells you | What you should see
 
-| *GPU Utilization %*
-| Compute cores active. High during OpenCode prompts, near 0 when idle.
-| 30–95% during load
+| *GPU Utilization*
+| Compute cores. High during OpenCode prompts, near 0 when idle.
+| Idle ≈ 0%. During OpenCode bursts, 30–95%.
 
-| *GPU Memory Used (GiB)*
-| Weights + KV cache. Qwen3.8-27B INT4 uses ~20 GB of 48 GB.
-| ~20–40 GiB
+| *GPU Framebuffer Mem Used*
+| VRAM: Qwen3.8 weights + KV cache on the 48 GiB L40S.
+| Once the model is Ready, typically ~35–42 GiB (not the 19.5 GiB checkpoint alone).
 
-| *GPU Temperature (°C)*
+| *GPU Temperature*
 | L40S throttles above 87°C.
-| < 80°C
+| Idle ~45–55°C; keep it under 80°C.
 
-| *GPU Power Draw (W)*
-| Correlates with inference load — this is the electricity line on the bill.
-| 50–300 W
+| *GPU Power Usage*
+| Watts — the electricity line on the bill.
+| Idle ~90–120 W; under load up to ~300 W.
 |===
 
-On the *GPU Utilization* graph for the last few hours you should see:
+On *GPU Utilization* over the last few hours you should see:
 
 * A spike when weights loaded into VRAM
-* Bursts when you used OpenCode (`/plan`, `/build`, the audit)
-* Idle valleys between prompts — the GPU is not spinning at 100% when nobody is chatting
+* Bursts when you used OpenCode (plan, build, the audit)
+* Idle valleys between prompts — the GPU is not at 100% when nobody is chatting
 
 [TIP]
 ====
 If 50 developers used OpenCode all day, what would this graph look like? When would you add a second GPU node? That is how the platform team justifies expanding the machine pool.
 ====
 
-== Part 2: vLLM metrics
+== Part 2: vLLM tokens (Web Console metrics)
 
-*Observe → Metrics*. Try:
+There is no separate “model metrics” page in OpenShift AI for this stack. Use the same console.
 
-[source,promql]
-----
-rate(vllm:request_success_total{namespace="llm-serving"}[5m])
-----
+. Left nav: *Observe → Metrics*.
+. Clear any sample query. Paste *one* expression below into the query box.
+. Click *Run queries*. Set the time range to the last hour (or the afternoon).
+. Repeat for each query (add a query with *Add query*, or replace the box).
 
-[source,promql]
-----
-rate(vllm:generation_tokens_total{namespace="llm-serving"}[5m])
-----
+Names use a *colon* (`vllm:generation_tokens_total`), not an underscore. Namespace is `llm-serving`.
 
-Qwen3.8-27B INT4 on this L40S is typically 20–60 tokens/sec depending on batch and prompt length.
+[cols="1,2", options="header"]
+|===
+| Paste this | What you should see
 
-[source,promql]
-----
-histogram_quantile(0.95,
-  rate(vllm:time_to_first_token_seconds_bucket{namespace="llm-serving"}[5m])
-)
-----
+| `rate(vllm:request_success_total{namespace="llm-serving"}[5m])`
+| Successful completions. `finished_reason="stop"` is the normal path.
 
-95th percentile time-to-first-token should stay under 2–3 seconds for interactive use.
+| `rate(vllm:generation_tokens_total{namespace="llm-serving"}[5m])`
+| Decode throughput. On this L40S, typically 20–60 tokens/sec while OpenCode is answering.
 
-[source,promql]
-----
-vllm:num_requests_running{namespace="llm-serving"}
-vllm:num_requests_waiting{namespace="llm-serving"}
-----
+| `histogram_quantile(0.95, rate(vllm:time_to_first_token_seconds_bucket{namespace="llm-serving"}[5m]))`
+| p95 time-to-first-token. Interactive use should stay under 2–3 seconds.
 
-When `num_requests_waiting` is consistently > 0, the model is saturated. This workshop is a fixed single GPU; production would use KEDA on that metric.
+| `vllm:num_requests_running{namespace="llm-serving"}`
+| In-flight requests. 0 when idle.
 
-== Part 3: Token quota is how you cap cost
+| `vllm:num_requests_waiting{namespace="llm-serving"}`
+| Queue. 0 unless the GPU is saturated. This workshop is one GPU; production would autoscale on this.
+|===
 
-Lab 1.3 created the subscription. Open `https://rh-ai.apps.<apps-domain>/` or inspect with `oc`.
+If a query returns *No datapoints*, stay in *Administrator* → *Observe → Metrics* (not the Developer perspective) and confirm `LLMInferenceService/qwen3` is Ready. User-workload monitoring is already on.
 
-* `MaaSAuthPolicy/qwen3-access` — `system:authenticated` may call Qwen3.8
-* `MaaSSubscription/qwen3-workshop` — *5 000 000 tokens / 24h* (workshop-generous)
-* Kuadrant `TokenRateLimitPolicy/maas-trlp-qwen3` — generated from the subscription
-* `sk-oai-` keys bound to that subscription
+== Part 3: Token quota (OpenShift AI dashboard)
 
-Auth only → HTTP 429 (no quota). Subscription only → HTTP 403 (no gateway access). Both are required.
+Graphs above are *usage*. The cap is the MaaS subscription — 5 000 000 tokens / 24h. Over quota the gateway returns HTTP 429.
+
+. In the OpenShift Web Console, open the *Application launcher* (the grid) → *Red Hat OpenShift AI*, or go to `https://rh-ai.apps.<apps-domain>/`.
+. Log in with the same cluster-admin as Act 0.
+. Open *Gen AI* / *Models as a service*.
+. Find *Qwen3.8* / `qwen3` in the catalog. The workshop subscription is *5 000 000 tokens / 24h* for `system:authenticated`. Extra keys can be minted here; they do not replace the Dev Spaces Secret.
+
+Confirm the same objects from a terminal if you want:
 
 [source,sh,role=execute]
 ----
@@ -115,31 +128,17 @@ oc get maasauthpolicy,maassubscription -n models-as-a-service
 oc get tokenratelimitpolicy -n llm-serving
 ----
 
-[source,yaml]
-----
-apiVersion: maas.opendatahub.io/v1alpha1
-kind: MaaSSubscription
-metadata:
-  name: qwen3-workshop
-  namespace: models-as-a-service
-spec:
-  priority: 10
-  owner:
-    groups:
-      - name: system:authenticated
-  modelRefs:
-    - name: qwen3
-      namespace: llm-serving
-      tokenRateLimits:
-        - limit: 5000000
-          window: 24h
-----
+You should see `MaaSModelRef/qwen3`, `MaaSAuthPolicy/qwen3-access`, `MaaSSubscription/qwen3-workshop`, and a Kuadrant `TokenRateLimitPolicy` derived from the subscription. Auth only → 429 (no quota). Subscription only → 403 (no gateway access). Both are required.
+
+Back in *Observe → Metrics*, the afternoon’s token count:
 
 [source,promql]
 ----
-sum by (namespace) (increase(vllm:generation_tokens_total[1h]))
-sum by (namespace) (increase(vllm:prompt_tokens_total[1h]))
+sum by (namespace) (increase(vllm:generation_tokens_total{namespace="llm-serving"}[1h]))
+sum by (namespace) (increase(vllm:prompt_tokens_total{namespace="llm-serving"}[1h]))
 ----
+
+Prompt tokens are usually much larger than generation tokens (OpenCode sends `AGENTS.md` and the conversation). That is expected.
 
 Rough cost model for this L40S (~$1.65/hr on-demand, ~43 tok/s decode):
 
@@ -150,7 +149,7 @@ OpenCode session     ≈ 50 000 tokens → ~$0.55
 10 concurrent devs   ≈ 500 000 tokens → ~$5.50 / hour of chatting
 ----
 
-The Fortune Cookie route is not on this invoice. Token quota on the MaaS gateway is how you stop an afternoon of `/build` from becoming an unbounded GPU bill.
+The Fortune Cookie route is not on this invoice. Token quota on the MaaS gateway is how you stop an afternoon of OpenCode from becoming an unbounded GPU bill.
 
 [cols="1,2", options="header"]
 |===
@@ -160,10 +159,10 @@ The Fortune Cookie route is not on this invoice. Token quota on the MaaS gateway
 | `MaaSSubscription` → Kuadrant `TokenRateLimitPolicy`
 
 | Self-service API keys
-| Dashboard or `POST /maas-api/v1/api-keys`
+| OpenShift AI dashboard
 
 | Usage tracking
-| vLLM token counters + Limitador
+| vLLM `vllm:generation_tokens_total` / `vllm:prompt_tokens_total` in *Observe → Metrics*
 
 | Chargeback
 | Prometheus → cost model → cloud billing
@@ -184,13 +183,15 @@ curl -s https://$(oc get route fortune-cookie -n fortune-cookie-dev \
 .Expected
 [source,text,options=nowrap]
 ----
-NAME                                      STATUS   ROLES    AGE
-ip-10-x-x-x.eu-west-1.compute.internal   Ready    worker   ...
+NAME                     STATUS   ROLES    AGE
+ip-10-x-x-x.compute.internal   Ready    worker   ...
 
-NAME     URL                         READY
-qwen3    https://maas.apps.../llm-serving/qwen3   True
+NAME     URL                                            READY
+qwen3    https://maas.apps.<apps-domain>/llm-serving/qwen3   True
 
 {"status":"ok"}
 ----
+
+You have also opened *Observe → Dashboards* (DCGM), *Observe → Metrics* (`vllm:…`), and the OpenShift AI catalog (5M tokens / 24h).
 
 ➡️ Move on to *Conclusion & What's Next*.

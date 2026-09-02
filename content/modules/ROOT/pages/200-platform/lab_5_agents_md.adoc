@@ -82,7 +82,7 @@ oc get configmap opencode-workspace-config -n "$CHE_NS" \
   -o jsonpath='{.data.opencode\.json}' | python3 -m json.tool
 ----
 
-You should see `baseURL` `{env:OPENAI_BASE_URL}` (mint + `configure-platform.sh` set that env to `https://maas.<apps-domain>/llm-serving/qwen3/v1`), provider/model *name* `Qwen3.8`, API id `qwen3`, and `limit.output: 8192`.
+You should see `baseURL` `{env:OPENAI_BASE_URL}` (mint + `configure-platform.sh` set that env to `https://maas.<apps-domain>/llm-serving/qwen3/v1`), provider/model *name* `Qwen3.8`, API id `qwen3`, `limit.context: 262144`, and `limit.output: 32768`.
 
 [NOTE]
 ====
@@ -103,11 +103,6 @@ echo "============================================"
 ----
 
 When a developer opens that URL, Dev Spaces clones the template (including `opencode.json`), injects the OpenCode binary, installs the ephemeral Git client, and opens VS Code in the browser. They talk to Qwen3.8; `AGENTS.md` is the runbook.
-
-[IMPORTANT]
-====
-Workspaces created from an older template still have Ansible scripts *or* a `qwen36` `opencode.json`. Create a *new* workspace from the URL above, or in an existing workspace run `git pull origin main`. Restarting an old workspace is not enough.
-====
 
 == Act 1 complete
 

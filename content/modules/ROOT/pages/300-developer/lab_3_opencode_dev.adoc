@@ -49,12 +49,10 @@ image::cicd-gitops.png[Prompt to production, align="center"]
 
 == Session 1: Plan
 
-The `plan` agent is read-only. It produces an implementation plan *without writing files*. Use it first so OpenCode internalizes `AGENTS.md`.
+*Plan* mode is read-only. It produces an implementation plan *without writing files*. Press kbd:[Tab] until the TUI shows plan, then paste the prompt. Stay in this OpenCode session — do not start a new one (`Ctrl+N`).
 
 [source,text,role=execute]
 ----
-/plan
-
 I want a Fortune Cookie web application in Go.
 
 The app serves:
@@ -71,18 +69,16 @@ Read AGENTS.md and produce a complete implementation plan:
 Do not write any code yet. Only plan.
 ----
 
-Review the plan. Adjust if needed. Stay in this OpenCode session — the plan is the context for `/build`. Do not start a new session (`Ctrl+N`).
+Review the plan. Adjust if needed. The plan is the context for the next prompt.
 
 ---
 
 == Session 2: Build and Deploy
 
-Switch to the build agent in the *same* session. The plan already has the file list, handlers, Dockerfile, and deploy steps. `AGENTS.md` already has the git, ephemeral Git, and `oc` commands. You do not restate them.
+Press kbd:[Tab] to switch to *build* mode in the *same* session. The plan already has the file list, handlers, Dockerfile, and deploy steps. `AGENTS.md` already has the git, ephemeral Git, and `oc` commands. You do not restate them.
 
 [source,text,role=execute]
 ----
-/build
-
 Implement the plan.
 ----
 
@@ -128,12 +124,10 @@ The Fortune Cookie process does *not* call Qwen3.8. The model wrote the code; th
 
 Close the GitOps loop: change the app, push, watch Tekton rebuild, roll the deployment. Still no hand-written `kubectl apply` for the app.
 
-Start a new OpenCode session in `${PROJECT_SOURCE}`:
+Start a new OpenCode session in `${PROJECT_SOURCE}`. Press kbd:[Tab] to *build* mode (you need file writes):
 
 [source,text,role=execute]
 ----
-/build
-
 Add 10 more fortune cookie messages to the slice in main.go.
 Make the HTML page display the fortune in a styled card with a cookie emoji 🥠.
 After making the changes, verify the build:

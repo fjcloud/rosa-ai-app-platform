@@ -25,7 +25,7 @@ spec:
         - --port=8080
         - --model=RedHatAI/Qwen3.8-27B-INT4
         - --served-model-name={{.Name}}
-        - --max-model-len=40960
+        - --max-model-len=262144
         - --dtype=auto
         - --gpu-memory-utilization=0.90
         - --max-num-seqs=16

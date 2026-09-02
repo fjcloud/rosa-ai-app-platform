@@ -103,7 +103,7 @@ curl -sS "https://${MAAS_HOST}/v1/models" \
       "ready": true,
       "modelDetails": {
         "displayName": "Qwen3.8",
-        "contextWindow": "40960"
+        "contextWindow": "262144"
       }
     }
   ]
@@ -123,7 +123,7 @@ opencode
 ----
 +
 The OpenCode TUI (Terminal UI) launches. It reads `AGENTS.md` and connects to the Qwen3.8 LLM automatically.
-Two built-in session modes are available via `/plan` and `/build` slash commands.
+Two session modes are available: *plan* (read-only — no file writes) and *build* (writes files). Press kbd:[Tab] to switch from one to the other.
 Press `q` to exit OpenCode when needed.
 
 == Understanding the OpenCode Configuration
@@ -155,8 +155,8 @@ Expected content:
         "qwen3": {
           "name": "Qwen3.8",
           "limit": {
-            "context": 40960,
-            "output": 8192
+            "context": 262144,
+            "output": 32768
           }
         }
       }
@@ -169,9 +169,7 @@ Expected content:
 
 OpenCode still reads `AGENTS.md` from the project directory at the start of every session. That is how the Platform Engineer's rules are enforced.
 
-If `opencode.json` still mentions `qwen36` or `llm-inference`, this workspace cloned an old template. Run `git pull origin main` (or create a new Dev Space).
-
-`limit.output` must stay well below `--max-model-len` (40960). OpenCode's default 32 000 output tokens would overflow the vLLM context window.
+`limit.output` must stay well below `--max-model-len` (262144). OpenCode's default 32 768 output tokens now fits the native 256K window.
 
 == ✅ Checkpoint
 

@@ -192,7 +192,7 @@ cfg = {
       'models': {
         'qwen3': {
           'name': 'Qwen3.8',
-          'limit': {'context': 40960, 'output': 8192}
+          'limit': {'context': 262144, 'output': 32768}
         }
       }
     }
@@ -206,6 +206,13 @@ for name in ('opencode.json', 'opencode.jsonc'):
   path = os.path.join(d, name)
   json.dump(cfg, open(path, 'w'), indent=2)
   print('Wrote', path)
+# Project opencode.json wins over XDG; keep it in sync with the 256K/32K pin.
+proj = os.path.expanduser('~/fortune-cookie')
+for name in ('opencode.json', 'opencode.jsonc'):
+  path = os.path.join(proj, name)
+  if os.path.isdir(proj):
+    json.dump(cfg, open(path, 'w'), indent=2)
+    print('Wrote', path)
 PYEOF
 
   ls -la

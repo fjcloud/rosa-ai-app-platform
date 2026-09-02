@@ -1,6 +1,6 @@
 = Lab 1.3 — Publish Qwen3.8 as a Service
 
-Operators are still installing. Use two minutes to understand *why* Models-as-a-Service, wait until the operators are Ready, then apply the serving stack. Developers get one HTTPS front door and one `sk-oai-` key — not a raw predictor Service, and not `api.openai.com`.
+Operators are still installing. Understand *why* Models-as-a-Service, wait until the operators are Ready, then apply the serving stack. Developers get one HTTPS front door and one `sk-oai-` key — not a raw predictor Service, and not `api.openai.com`.
 
 [NOTE]
 ====
@@ -9,25 +9,11 @@ Operators are still installing. Use two minutes to understand *why* Models-as-a-
 *Fire and forget:* After you apply inference, move to Lab 1.4. The model is Ready before Act 2.
 ====
 
-== Why Models-as-a-Service (two minutes)
+== Why Models-as-a-Service
 
 OpenShift AI 3.5 serves the model as an `LLMInferenceService`. Models-as-a-Service sits in front: Gateway, API keys, token quota. GitOps still owns the serving stack. The dashboard is the UI for catalog, subscriptions, and extra keys.
 
 image::model-serving-architecture.png[Qwen3.8 as Models-as-a-Service, align="center"]
-
-[source]
-----
- OpenCode / curl
-        │  Authorization: Bearer sk-oai-...
-        ▼
- Gateway  maas.<apps-domain>     Authorino (auth) + Limitador (quota)
-        │
-        ▼
- LLMInferenceService/qwen3       Red Hat vLLM on the L40S
-        │
-        ▼
- POST /v1/chat/completions       OpenAI-compatible JSON
-----
 
 Anything that already speaks OpenAI works. One key, not an access/secret pair. Do not install Service Mesh 3 — OpenShift 4.22 already has Gateway API.
 
@@ -58,7 +44,7 @@ Anything that already speaks OpenAI works. One key, not an access/secret pair. D
 | Red Hat vLLM CUDA 3.5.0 — `registry.redhat.io/rhaii/vllm-cuda-rhel9:3.5.0`
 
 | Context
-| Native 262,144; this workshop serves *40,960* (`--max-model-len=40960`)
+| Native *262,144* (`--max-model-len=262144`, 256K)
 
 | API id / display name
 | `qwen3` / *Qwen3.8*
@@ -67,7 +53,7 @@ Anything that already speaks OpenAI works. One key, not an access/secret pair. D
 | `--tool-call-parser=qwen3_coder`, `--reasoning-parser=qwen3`
 |===
 
-OpenCode needs `--enable-auto-tool-choice` and `limit.output: 8192` so it does not request 32 000 tokens against a 40 960 window.
+OpenCode needs `--enable-auto-tool-choice`. `limit.output: 32768` matches OpenCode's default and stays well below the 262,144 window.
 
 Same JSON as cloud OpenAI, different host:
 
@@ -248,7 +234,7 @@ spec:
         image: registry.redhat.io/rhaii/vllm-cuda-rhel9:3.5.0
         args:
           - --served-model-name=qwen3
-          - --max-model-len=40960
+          - --max-model-len=262144
           - --ssl-certfile=/var/run/kserve/tls/tls.crt   # <4>
 ----
 

@@ -37,14 +37,12 @@ cd ${PROJECT_SOURCE}
 opencode
 ----
 
-The build agent (`/build`) modifies files; the plan agent (`/plan`) only describes. Use `/build` for all audits in this lab.
+Audits change files, so stay in *build* mode. Press kbd:[Tab] until the TUI shows build.
 
 == Audit 1: Resource Governance
 
 [source,text,role=execute]
 ----
-/build
-
 Review deploy/base/deployment.yaml. Verify that all containers have CPU and memory
 requests and limits set exactly as specified in AGENTS.md:
   - requests: cpu 50m,  memory 64Mi
@@ -59,8 +57,6 @@ If OpenCode patches the file, ask it to ship the change using the "Later change"
 
 [source,text,role=execute]
 ----
-/build
-
 Verify that the Deployment in deploy/base/deployment.yaml has both a liveness probe
 and a readiness probe configured:
   - livenessProbe:  HTTP GET /healthz on port 8080, initialDelaySeconds 5
@@ -87,8 +83,6 @@ curl -s https://${ROUTE}/healthz
 
 [source,text,role=execute]
 ----
-/build
-
 Perform a security and TLS audit of deploy/base/:
 
 1. Deployment: verify the pod securityContext sets runAsNonRoot: true and

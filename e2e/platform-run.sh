@@ -394,7 +394,7 @@ if [[ "$CLONE_OK" -eq 1 ]]; then
   check "OpenCode config names the model Qwen3.8" \
     "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['provider']['qwen3']['name']=='Qwen3.8'; assert d['provider']['qwen3']['models']['qwen3']['name']=='Qwen3.8'\""
   check "opencode-workspace-config caps output tokens" \
-    "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['provider']['qwen3']['models']['qwen3']['limit']['output']==8192\""
+    "oc get configmap opencode-workspace-config -n openshift-operators -o jsonpath='{.data.opencode\.json}' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['provider']['qwen3']['models']['qwen3']['limit']['context']==262144; assert d['provider']['qwen3']['models']['qwen3']['limit']['output']==32768\""
 
   step "Phase 5d: devfile.yaml"
   for pattern in "GIT_SERVER" "gitpop"; do

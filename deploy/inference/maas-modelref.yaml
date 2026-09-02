@@ -7,7 +7,7 @@ metadata:
     openshift.io/display-name: Qwen3.8
     openshift.io/description: Red Hat AI Qwen3.8-27B-INT4 served with Red Hat vLLM CUDA
     opendatahub.io/genai-use-case: chat
-    opendatahub.io/context-window: "40960"
+    opendatahub.io/context-window: "262144"
 spec:
   modelRef:
     kind: LLMInferenceService
