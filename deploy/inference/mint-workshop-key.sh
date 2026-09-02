@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Mint a MaaS API key bound to qwen3-workshop and store it as OPENAI_API_KEY
-# for Dev Spaces (OpenCode / Continue). Requires cluster-admin (or any user
+# for Dev Spaces (OpenCode). Requires cluster-admin (or any user
 # in a group listed on MaaSSubscription/qwen3-workshop).
 set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

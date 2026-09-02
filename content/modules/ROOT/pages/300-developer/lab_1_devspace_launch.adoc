@@ -58,9 +58,8 @@ This takes approximately 2-3 minutes on first launch. *Subsequent launches are f
 ** A file explorer on the left
 ** A terminal at the bottom
 ** OpenCode available on `PATH` (injected by Dev Spaces, not by the template)
-** Continue in the activity bar — chat and inline completions against Qwen3.8
 +
-Do **not** sign in to GitHub Copilot. Che Code ships Copilot as a built-in; the platform disables it. The in-cluster model is Continue (editor) and OpenCode (terminal agent).
+Do **not** sign in to GitHub Copilot. Che Code ships Copilot as a built-in; the platform disables it. Do not install Continue. The in-cluster model is OpenCode in the terminal.
 
 == Verify OpenCode is Running
 

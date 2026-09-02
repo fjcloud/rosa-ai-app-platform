@@ -232,10 +232,10 @@ check "MaaS secret injects OPENAI_BASE_URL" \
   "oc get secret ai-provider-openai-api-key -n openshift-operators -o jsonpath='{.data.OPENAI_BASE_URL}' | grep -q ."
 check "VS Code editor config disables GitHub Copilot" \
   "oc get configmap vscode-editor-configurations -n openshift-operators -o jsonpath='{.data.settings\.json}' | grep -q 'chat.disableAIFeatures'"
-check "Continue is a recommended VS Code extension" \
-  "oc get configmap vscode-editor-configurations -n openshift-operators -o jsonpath='{.data.extensions\.json}' | grep -q 'Continue.continue'"
-check "Continue config uses OPENAI_BASE_URL (cluster-agnostic)" \
-  "oc get configmap continue-workspace-config -n openshift-operators -o jsonpath='{.data.config\.yaml}' | grep -q 'OPENAI_BASE_URL'"
+check "Continue is not a recommended VS Code extension" \
+  "! oc get configmap vscode-editor-configurations -n openshift-operators -o jsonpath='{.data.extensions\.json}' | grep -q 'Continue.continue'"
+check "Continue workspace ConfigMap is absent" \
+  "! oc get configmap continue-workspace-config -n openshift-operators"
 
 # NFD NodeFeatureDiscovery
 check "NodeFeatureDiscovery nfd-instance exists" \

@@ -28,7 +28,7 @@ oc patch gateway maas-default-gateway -n openshift-ingress --type=json -p "[
   {\"op\":\"replace\",\"path\":\"/spec/listeners/0/tls/certificateRefs/0/name\",\"value\":\"${CERT}\"}
 ]"
 
-# OpenCode / Continue read {env:OPENAI_BASE_URL} / ${OPENAI_BASE_URL}.
+# OpenCode reads {env:OPENAI_BASE_URL} / ${OPENAI_BASE_URL}.
 # Keep the Dev Spaces secret in sync if mint already created it.
 if oc get secret "${SECRET_NAME}" -n "${SECRET_NS}" >/dev/null 2>&1; then
   oc patch secret "${SECRET_NAME}" -n "${SECRET_NS}" --type=merge \

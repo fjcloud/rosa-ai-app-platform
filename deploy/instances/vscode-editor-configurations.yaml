@@ -1,6 +1,7 @@
 # Applied to every Dev Spaces workspace (synced from the CheCluster namespace).
 # Che Code ships GitHub Copilot as a built-in; it cannot use an in-cluster LLM.
-# Hide that sign-in prompt and install Continue pointed at Qwen3.8 instead.
+# Hide that sign-in prompt. The in-cluster agent is OpenCode in the terminal —
+# not Continue, not Copilot.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,60 +20,18 @@ data:
       "chat.disableAIFeatures": true,
       "chat.commandCenter.enabled": false,
       "github.copilot.enable": { "*": false },
-      "github.copilot.editor.enableAutoCompletions": false,
-      "continue.telemetryEnabled": false
+      "github.copilot.editor.enableAutoCompletions": false
     }
   extensions.json: |
     {
-      "recommendations": [
-        "Continue.continue"
-      ]
+      "recommendations": []
     }
   policy.json: |
     {
       "AllowedExtensions": {
         "*": true,
         "GitHub.copilot": false,
-        "GitHub.copilot-chat": false
+        "GitHub.copilot-chat": false,
+        "Continue.continue": false
       }
     }
----
-# Continue.dev config: OpenAI-compatible Qwen3.8 (same endpoint as OpenCode).
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: continue-workspace-config
-  namespace: openshift-operators
-  labels:
-    app.kubernetes.io/part-of: che.eclipse.org
-    app.kubernetes.io/component: workspaces-config
-    controller.devfile.io/mount-to-devworkspace: "true"
-    controller.devfile.io/watch-configmap: "true"
-  annotations:
-    controller.devfile.io/mount-as: subpath
-    controller.devfile.io/mount-path: /home/user/.continue
-    controller.devfile.io/mount-on-start: "true"
-data:
-  config.yaml: |
-    name: Qwen3.8
-    version: 1.0.0
-    schema: v1
-    models:
-      - name: Qwen3.8
-        provider: openai
-        model: qwen3
-        apiBase: ${OPENAI_BASE_URL}
-        apiKey: ${OPENAI_API_KEY}
-        roles:
-          - chat
-          - edit
-          - apply
-          - autocomplete
-        defaultCompletionOptions:
-          contextLength: 40960
-          maxTokens: 8192
-        requestOptions:
-          timeout: 600
-          extraBodyProperties:
-            chat_template_kwargs:
-              enable_thinking: false
