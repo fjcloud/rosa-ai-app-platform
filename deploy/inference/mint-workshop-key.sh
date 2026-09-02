@@ -18,13 +18,26 @@ OPENAI_BASE_URL="${OPENAI_BASE_URL:-${MAAS_API_URL}/llm-serving/qwen3/v1}"
 
 echo "Minting MaaS key '${KEY_NAME}' on ${MAAS_API_URL} (subscription=${SUBSCRIPTION})"
 
-RESP="$(curl -sS -w '\n%{http_code}' -X POST "${MAAS_API_URL}/maas-api/v1/api-keys" \
-  -H "Authorization: Bearer $(oc whoami -t)" \
-  -H "Content-Type: application/json" \
-  -d "{\"name\": \"${KEY_NAME}\", \"description\": \"Dev Spaces OpenCode workshop key\", \"subscription\": \"${SUBSCRIPTION}\", \"expiresIn\": \"90d\"}")"
+mint_key() {
+  curl -sS -w '\n%{http_code}' -X POST "${MAAS_API_URL}/maas-api/v1/api-keys" \
+    -H "Authorization: Bearer $(oc whoami -t)" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\": \"${KEY_NAME}\", \"description\": \"Dev Spaces OpenCode workshop key\", \"subscription\": \"${SUBSCRIPTION}\", \"expiresIn\": \"90d\"}"
+}
 
+RESP="$(mint_key)"
 HTTP_CODE="$(echo "${RESP}" | tail -n1)"
 BODY="$(echo "${RESP}" | sed '$d')"
+
+# 503 / WASM AUTH_FAILURE: Kuadrant started before EnvoyFilter CRDs existed.
+if [[ "${HTTP_CODE}" == "503" || "${HTTP_CODE}" == "000" ]]; then
+  echo "Mint HTTP ${HTTP_CODE} — recycling Kuadrant after Gateway API CRDs..." >&2
+  bash "${SCRIPT_DIR}/../instances/configure-kuadrant-gateway.sh"
+  sleep 8
+  RESP="$(mint_key)"
+  HTTP_CODE="$(echo "${RESP}" | tail -n1)"
+  BODY="$(echo "${RESP}" | sed '$d')"
+fi
 
 if [[ "${HTTP_CODE}" != "200" && "${HTTP_CODE}" != "201" ]]; then
   echo "Failed to mint API key (HTTP ${HTTP_CODE}):" >&2

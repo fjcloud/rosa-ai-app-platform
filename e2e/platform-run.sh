@@ -280,6 +280,9 @@ check "MaaSSubscription qwen3-workshop Active" \
 check "Gateway maas-default-gateway Programmed" \
   "oc get gateway maas-default-gateway -n openshift-ingress -o jsonpath='{.status.conditions[?(@.type==\"Programmed\")].status}' | grep -q True"
 
+check "Kuadrant AuthPolicy maas-gateway-auth Accepted" \
+  "oc get authpolicy maas-gateway-auth -n openshift-ingress -o jsonpath='{.status.conditions[?(@.type==\"Accepted\")].status}' | grep -q True"
+
 LLM_READY=$(oc get llminferenceservice "$LLM_IS" -n "$LLM_NS" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
 if [[ "$LLM_READY" == "True" ]]; then

@@ -119,7 +119,7 @@ If any `wait` times out, check `oc get pods -n <namespace>`. Common causes: imag
 
 == Step 1: Create Platform Instances
 
-This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (Authorino TLS, bind the Gateway to *this* cluster's apps domain and wildcard cert, dashboard GPU taints and MaaS UI flags).
+This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (Authorino TLS, bind the Gateway to *this* cluster's apps domain and wildcard cert, recycle Kuadrant after Gateway API CRDs exist, dashboard GPU taints and MaaS UI flags).
 
 [source,sh,role=execute]
 ----
@@ -136,9 +136,15 @@ gateway.gateway.networking.k8s.io/maas-default-gateway created
 kuadrant.kuadrant.io/kuadrant created
 Authorino TLS configured.
 MaaS Gateway bound to this cluster.
+Kuadrant operator recycled after Gateway API CRDs.
 Dashboard GPU-node tolerations and MaaS UI flags applied.
-Platform instances configured (Authorino TLS + MaaS Gateway + dashboard).
+Platform instances configured (Authorino TLS + MaaS Gateway + Kuadrant + dashboard).
 ----
+
+[NOTE]
+====
+Kuadrant registers Istio reconcilers only if the `EnvoyFilter` CRD exists when the operator *process* starts. OpenShift 4.22 Gateway API (`openshift-default`) creates that CRD when you apply the Gateway — the RHCL operator from Lab 1.2 is already running. `configure-platform.sh` waits for the CRD, then *deletes* the Kuadrant operator pod so it starts again. Do not `oc rollout restart` that Deployment (OLM reverts it). Do not install Service Mesh 3.
+====
 
 === What was created
 
