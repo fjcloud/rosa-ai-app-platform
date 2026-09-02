@@ -49,7 +49,7 @@ Starting workspace...
 Pulling universal developer image...
 Injecting OpenCode...
 Running postStart commands...
-  ✓ Installing gitpop
+  ✓ Installing the ephemeral Git client
 ----
 +
 This takes approximately 2-3 minutes on first launch. *Subsequent launches are faster* — the image is cached.
@@ -65,18 +65,18 @@ Do **not** sign in to GitHub Copilot. Che Code ships Copilot as a built-in; the 
 
 . Open a terminal in the workspace (*Terminal → New Terminal* or press kbd:[Ctrl+`]).
 
-. Check that OpenCode is on `PATH` (injected) and that gitpop was installed by `postStart`:
+. Check that OpenCode is on `PATH` (injected) and that ephemeral Git is configured (`$GIT_SERVER`):
 +
 [source,sh,role=execute]
 ----
-opencode --version && gitpop --version 2>/dev/null || true
+opencode --version && echo "GIT_SERVER=$GIT_SERVER"
 ----
 +
 .Sample Output
 [source,text,options=nowrap]
 ----
 opencode 0.x.x
-gitpop version x.x.x
+GIT_SERVER=https://git.<workshop-domain>
 ----
 
 . Verify OpenCode can reach Models-as-a-Service. Look up the MaaS Gateway hostname (this is a Gateway API front door, not a cluster Ingress domain and not an OpenShift `Route`):
@@ -178,7 +178,7 @@ If `opencode.json` still mentions `qwen36` or `llm-inference`, this workspace cl
 [source,sh,role=execute]
 ----
 opencode --version && \
-gitpop --version 2>/dev/null || true && \
+echo "GIT_SERVER=$GIT_SERVER" && \
 MAAS_HOST=$(oc get gateway maas-default-gateway -n openshift-ingress \
   -o jsonpath='{.spec.listeners[0].hostname}') && \
 curl -sS "https://${MAAS_HOST}/v1/models" \
@@ -190,7 +190,7 @@ curl -sS "https://${MAAS_HOST}/v1/models" \
 [source,text,options=nowrap]
 ----
 opencode 0.x.x
-gitpop version x.x.x
+GIT_SERVER=https://git.<workshop-domain>
 LLM ready: Qwen3.8
 ----
 

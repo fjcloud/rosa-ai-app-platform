@@ -18,13 +18,13 @@ The template is already on GitHub: https://github.com/fjcloud/go-app-template[fj
 | Path | Why it exists
 
 | `AGENTS.md`
-| The only runbook OpenCode reads. Generate `main.go` / `go.mod` / `Dockerfile`, then `git` / `gitpop` / `oc`.
+| The only runbook OpenCode reads. Generate `main.go` / `go.mod` / `Dockerfile`, then git, ephemeral Git, and `oc`.
 
 | `opencode.json`
 | Pins OpenCode to in-cluster Qwen3.8 via MaaS. The API key is `$OPENAI_API_KEY` (injected). The OpenCode *binary* is still injected by Dev Spaces.
 
 | `devfile.yaml`
-| Dev Spaces workspace. Installs gitpop.
+| Dev Spaces workspace. Installs the ephemeral Git client.
 
 | `deploy/` `pipeline/` `gitops/`
 | Golden-path Kustomize. The model applies it; it must not rewrite it (except the Deployment `image:` at deploy time).
@@ -48,7 +48,7 @@ You should see about 45 lines. Notice:
 
 * *Files YOU must generate* — `main.go`, `go.mod`, `Dockerfile` with an exact two-stage template
 * *Files already in the repository* — do not rewrite `deploy/`, `pipeline/`, `gitops/`, `devfile.yaml`, or `opencode.json`
-* *Three deploy phases* — Git server → Tekton PipelineRun → Argo CD Application
+* *Three deploy phases* — ephemeral Git → Tekton PipelineRun → Argo CD Application
 * *Namespaces* — `${APP_NAME}-build` and `${APP_NAME}-dev` only. Never namespace `default` for the app, Argo CD, or the Application.
 
 [cols="1,2,2", options="header"]
@@ -56,7 +56,7 @@ You should see about 45 lines. Notice:
 | Phase | What it does | Typical duration
 
 | 1. Git
-| `gitpop init` + commit + push to the personal Git server
+| Create a personal repo on ephemeral Git, commit, and push
 | ~30s
 
 | 2. Image
@@ -86,7 +86,7 @@ You should see `baseURL` `{env:OPENAI_BASE_URL}` (mint + `configure-platform.sh`
 
 [NOTE]
 ====
-If you are on the shared workshop cluster, `GIT_SERVER` in `devfile.yaml` already matches. Do not fork and sed unless you are adapting this template to another cluster.
+If you are on the shared workshop cluster, the ephemeral Git URL in `devfile.yaml` already matches. Do not fork and sed unless you are adapting this template to another cluster.
 ====
 
 == Step 3: Copy the developer launch URL
@@ -102,7 +102,7 @@ echo "  $DEVSPACES_URL/#$TEMPLATE_URL?ai-provider=opencodeai/opencode"
 echo "============================================"
 ----
 
-When a developer opens that URL, Dev Spaces clones the template (including `opencode.json`), injects the OpenCode binary, installs gitpop, and opens VS Code in the browser. They talk to Qwen3.8; `AGENTS.md` is the runbook.
+When a developer opens that URL, Dev Spaces clones the template (including `opencode.json`), injects the OpenCode binary, installs the ephemeral Git client, and opens VS Code in the browser. They talk to Qwen3.8; `AGENTS.md` is the runbook.
 
 [IMPORTANT]
 ====

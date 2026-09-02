@@ -38,7 +38,7 @@ You finished the Monday story: an in-cluster coding agent on ROSA, no public LLM
 | Milestone | Details
 
 | Personal Git repo
-| Created in seconds via the Git server — no GitHub account, no SSH key setup
+| Created in seconds on ephemeral Git — no GitHub account, no SSH key setup
 
 | Fortune Cookie app
 | Generated live by OpenCode + Qwen3.8 — `main.go`, `go.mod`, `Dockerfile`, all from a single prompt

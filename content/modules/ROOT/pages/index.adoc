@@ -33,9 +33,9 @@ The LLM writes the app. The Fortune Cookie app does *not* call the LLM — it se
 * *OpenShift GitOps* (Argo CD) and *OpenShift Pipelines* (Tekton)
 
 === Act 2 — Developer
-* A personal Git repository via the in-cluster Git server
+* A personal Git repository on *ephemeral Git* (workshop-scoped, no GitHub account)
 * A *Fortune Cookie* Go app generated live by OpenCode + Qwen3.8
-* Image build and GitOps deploy from `git` / `gitpop` / `oc` — no Ansible, no local Docker
+* Image build and GitOps deploy from git, ephemeral Git, and `oc` — no Ansible, no local Docker
 * Platform rules (limits, probes, SCC, TLS) audited by the same model
 
 === Act 3 — The bill
@@ -118,6 +118,6 @@ You will need:
 * Access to the lab environment (credentials provided by your instructor)
 * A terminal — provided inside your Dev Space (no local install required)
 
-Everything else — `rosa`, `oc`, `kubectl`, the OpenCode CLI, the Git server client — is either pre-installed in the lab environment or installed during the workshop steps.
+Everything else — `rosa`, `oc`, `kubectl`, the OpenCode CLI, the ephemeral Git client — is either pre-installed in the lab environment or installed during the workshop steps.
 
 Let's get started.

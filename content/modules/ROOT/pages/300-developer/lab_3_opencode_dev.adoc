@@ -11,7 +11,7 @@ You have a Dev Space, an in-cluster LLM, and a short `AGENTS.md`. Three OpenCode
 
 [TIP]
 ====
-OpenCode reads `AGENTS.md` before every prompt. You do not repeat platform rules — describe what you want. The LLM knows the Dockerfile template and the `git` / `oc` deploy phases.
+OpenCode reads `AGENTS.md` before every prompt. You do not repeat platform rules — describe what you want. The LLM knows the Dockerfile template and the git, ephemeral Git, and `oc` deploy phases.
 ====
 
 == Step 1: Open the Project and Launch OpenCode
@@ -38,7 +38,7 @@ opencode
 [cols="1,2,2",options="header"]
 |===
 | Phase | What it does | Duration
-| Git | `gitpop init` + commit + push to your personal repo | ~30s
+| Git | Create a personal repo on ephemeral Git, commit, and push | ~30s
 | Image | `oc apply -k pipeline/base` + Tekton PipelineRun | 3–5 min
 | GitOps | Point `image:` at the build, apply `gitops/base`, create the Argo CD Application | 2–3 min
 |===
@@ -66,7 +66,7 @@ Read AGENTS.md and produce a complete implementation plan:
 - File list and purpose of each file
 - HTTP handler logic
 - Dockerfile stages (follow the template in AGENTS.md exactly)
-- Deploy steps from AGENTS.md (gitpop, Tekton PipelineRun, Argo CD)
+- Deploy steps from AGENTS.md (ephemeral Git, Tekton PipelineRun, Argo CD)
 
 Do not write any code yet. Only plan.
 ----
@@ -77,7 +77,7 @@ Review the plan. Adjust if needed. Stay in this OpenCode session — the plan is
 
 == Session 2: Build and Deploy
 
-Switch to the build agent in the *same* session. The plan already has the file list, handlers, Dockerfile, and deploy steps. `AGENTS.md` already has the `git` / `oc` commands. You do not restate them.
+Switch to the build agent in the *same* session. The plan already has the file list, handlers, Dockerfile, and deploy steps. `AGENTS.md` already has the git, ephemeral Git, and `oc` commands. You do not restate them.
 
 [source,text,role=execute]
 ----
