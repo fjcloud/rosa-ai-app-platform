@@ -2,9 +2,8 @@
 
 Welcome to the *AI-Powered Developer Platform on ROSA* workshop.
 
-The story for today is a Monday at a company that will not send source code to a public LLM. Security approved an *in-cluster coding agent*: Qwen3.8 on a GPU, OpenCode in the browser, no Copilot, no `api.openai.com`.
+The story for today is a Monday at a company that will not send source code to a public LLM. This morning the platform team publishes Qwen3.8. This afternoon a developer ships an app with it. You wear both hats, then you look at the GPU and token bill.
 
-You wear two hats. In the morning you are the platform engineer (Alex): GPU, operators, Models-as-a-Service, one API key. In the afternoon you are the new hire (Sam): open a Dev Space, prompt Fortune Cookie into production, then audit it. Before you leave, you look at the GPU and token bill together.
 
 == Who This Workshop Is For
 
