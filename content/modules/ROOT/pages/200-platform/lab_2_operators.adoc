@@ -33,7 +33,7 @@ Developers deploy their own Argo CD instance inside their project namespace — 
 
 == Step 1: Install All Operators
 
-All operator manifests are bundled locally in the workshop repository. Apply them in a single command:
+All operator manifests are in the workshop repo you cloned in Act 0. From that directory:
 
 [source,sh,role=execute]
 ----
@@ -66,7 +66,7 @@ The first apply may report that `Task` CRDs are not found yet. That is expected 
 
 == Step 2: Start Background Health Checks
 
-Kick off watches for the operators in the background, then move on immediately:
+Kick off watches for the operators in the background, then move on immediately. `oc wait` exits immediately if the Deployment does not exist yet — wait for OLM to create it first:
 
 [source,sh,role=execute]
 ----
@@ -82,8 +82,9 @@ for check in \
   "kuadrant-system:kuadrant-operator-controller-manager:Connectivity Link"; do
   IFS=: read ns dep label <<< "$check"
   (
+    until oc get deployment/${dep} -n ${ns} >/dev/null 2>&1; do sleep 5; done
     oc wait deployment/${dep} -n ${ns} \
-      --for=condition=Available --timeout=600s 2>/dev/null &&
+      --for=condition=Available --timeout=600s &&
     echo "  ✅  ${label} ready"
   ) &
 done

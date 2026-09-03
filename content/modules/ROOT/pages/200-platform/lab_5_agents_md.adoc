@@ -1,6 +1,6 @@
 = Lab 1.4 — Hand the Keys
 
-The GPU is warming Qwen3.8. Your job now is to hand the afternoon developer a *launch URL* and a short runbook (~45 lines) — not a wiki, not Ansible, not a tour of every Kustomize file.
+The GPU is warming Qwen3.8. Your job now is to hand the afternoon developer a *launch URL* and a short runbook — not a wiki, not Ansible, not a tour of every Kustomize file.
 
 The template is already on GitHub: https://github.com/fjcloud/go-app-template[fjcloud/go-app-template].
 
@@ -44,7 +44,7 @@ wc -l AGENTS.md
 cat AGENTS.md
 ----
 
-You should see about 45 lines. Notice:
+You should see a short file. Notice:
 
 * *Files YOU must generate* — `main.go`, `go.mod`, `Dockerfile` with an exact two-stage template
 * *Files already in the repository* — do not rewrite `deploy/`, `pipeline/`, `gitops/`, `devfile.yaml`, or `opencode.json`
@@ -94,6 +94,10 @@ If you are on the shared workshop cluster, the ephemeral Git URL in `devfile.yam
 [source,sh,role=execute]
 ----
 DEVSPACES_URL=$(oc get checluster -A -o jsonpath='{.items[0].status.cheURL}')
+if [[ -z "$DEVSPACES_URL" ]]; then
+  DEVSPACES_URL="https://$(oc get route devspaces -n openshift-operators \
+    -o jsonpath='{.spec.host}')"
+fi
 TEMPLATE_URL="https://github.com/fjcloud/go-app-template"
 
 echo "============================================"
@@ -120,7 +124,7 @@ When a developer opens that URL, Dev Spaces clones the template (including `open
 | ✅ Gateway + `sk-oai-` key; model finishing load in the background
 
 | Go app template
-| ✅ ~45-line `AGENTS.md`; Dev Spaces URL ready to paste
+| ✅ Short `AGENTS.md`; Dev Spaces URL ready to paste
 |===
 
 Switch persona — move on to *Act 2: first day* (Lab 2.1).

@@ -16,17 +16,19 @@ OpenCode reads `AGENTS.md` before every prompt. You do not repeat platform rules
 
 == Step 1: Open the Project and Launch OpenCode
 
-Dev Spaces already cloned the template — it is in `${PROJECT_SOURCE}`.
+Dev Spaces already cloned the template — it is in `${PROJECT_SOURCE}`. The template sets `APP_NAME=fortune-cookie`.
 
 [source,sh,role=execute]
 ----
 cd ${PROJECT_SOURCE}
+echo "APP_NAME=$APP_NAME"
 ls
 ----
 
 .Expected
 [source,console]
 ----
+APP_NAME=fortune-cookie
 AGENTS.md  deploy/  devfile.yaml  gitops/  opencode.json  pipeline/
 ----
 
@@ -49,24 +51,11 @@ image::cicd-gitops.png[Prompt to production, align="center"]
 
 == Session 1: Plan
 
-*Plan* mode is read-only. It produces an implementation plan *without writing files*. Press kbd:[Tab] until the TUI shows plan, then paste the prompt. Stay in this OpenCode session — do not start a new one (`Ctrl+N`).
+Press kbd:[Tab] until the TUI shows *plan*, then paste. Stay in this session — do not start a new one (`Ctrl+N`).
 
 [source,text,role=execute]
 ----
-I want a Fortune Cookie web application in Go.
-
-The app serves:
-- GET /   — an HTML page that displays a random fortune cookie message
-            (hard-code at least 10 messages in a slice)
-- GET /healthz — returns {"status":"ok"} for Kubernetes health probes
-
-Read AGENTS.md and produce a complete implementation plan:
-- File list and purpose of each file
-- HTTP handler logic
-- Dockerfile stages (follow the template in AGENTS.md exactly)
-- Deploy steps from AGENTS.md (ephemeral Git, Tekton PipelineRun, Argo CD)
-
-Do not write any code yet. Only plan.
+Fortune Cookie in Go: GET / is HTML with a random fortune from at least 10 hard-coded messages.
 ----
 
 Review the plan. Adjust if needed. The plan is the context for the next prompt.
@@ -75,7 +64,7 @@ Review the plan. Adjust if needed. The plan is the context for the next prompt.
 
 == Session 2: Build and Deploy
 
-Press kbd:[Tab] to switch to *build* mode in the *same* session. The plan already has the file list, handlers, Dockerfile, and deploy steps. `AGENTS.md` already has the git, ephemeral Git, and `oc` commands. You do not restate them.
+Press kbd:[Tab] to *build* in the *same* session.
 
 [source,text,role=execute]
 ----
@@ -88,6 +77,8 @@ OpenCode writes the files, compiles, then ships from `AGENTS.md`. When it is don
 
 [source,sh,role=execute]
 ----
+APP_NAME="${APP_NAME:-fortune-cookie}"
+
 APP_ROUTE=$(oc get route $APP_NAME -n ${APP_NAME}-dev \
   -o jsonpath='{.spec.host}' 2>/dev/null)
 ARGOCD_ROUTE=$(oc get route argocd-server -n ${APP_NAME}-dev \
@@ -116,7 +107,7 @@ Open both URLs in your browser:
 * The app URL shows a random fortune cookie message
 * The Argo CD console shows your `fortune-cookie` Application in *Synced / Healthy* — *your* Argo CD instance, scoped to your project
 
-The Fortune Cookie process does *not* call Qwen3.8. The model wrote the code; the running app serves a slice of strings.
+The model wrote the code; the running app serves a slice of strings.
 
 ---
 
@@ -124,18 +115,11 @@ The Fortune Cookie process does *not* call Qwen3.8. The model wrote the code; th
 
 Close the GitOps loop: change the app, push, watch Tekton rebuild, roll the deployment. Still no hand-written `kubectl apply` for the app.
 
-Start a new OpenCode session in `${PROJECT_SOURCE}`. Press kbd:[Tab] to *build* mode (you need file writes):
+Start a new OpenCode session in `${PROJECT_SOURCE}`. Press kbd:[Tab] to *build*:
 
 [source,text,role=execute]
 ----
-Add 10 more fortune cookie messages to the slice in main.go.
-Make the HTML page display the fortune in a styled card with a cookie emoji 🥠.
-After making the changes, verify the build:
-  CGO_ENABLED=0 go build -buildvcs=false -o /dev/null .
-
-Then ship it using the "Later change" steps in AGENTS.md:
-git commit + push, a new Tekton PipelineRun, then
-  oc rollout restart deployment/$APP_NAME -n ${APP_NAME}-dev
+Add 10 more fortunes and show the message in a styled card with 🥠. Then ship it.
 ----
 
 Wait for OpenCode to confirm the PipelineRun succeeded.
@@ -144,6 +128,8 @@ You can watch the build in the OpenShift console: *Pipelines → PipelineRuns* i
 
 [source,sh,role=execute]
 ----
+APP_NAME="${APP_NAME:-fortune-cookie}"
+
 oc get application $APP_NAME -n ${APP_NAME}-dev \
   -o jsonpath='{.status.sync.status} / {.status.health.status}' && echo
 

@@ -43,32 +43,23 @@ Audits change files, so stay in *build* mode. Press kbd:[Tab] until the TUI show
 
 [source,text,role=execute]
 ----
-Review deploy/base/deployment.yaml. Verify that all containers have CPU and memory
-requests and limits set exactly as specified in AGENTS.md:
-  - requests: cpu 50m,  memory 64Mi
-  - limits:   cpu 200m, memory 128Mi
-
-If any values are missing or incorrect, fix them now and show me the corrected section.
+Check resource requests and limits on deploy/base/deployment.yaml. Fix if needed.
 ----
 
-If OpenCode patches the file, ask it to ship the change using the "Later change" steps in AGENTS.md (git push, new PipelineRun, rollout restart).
+If it patches the file, tell it to ship the change.
 
 == Audit 2: Observability
 
 [source,text,role=execute]
 ----
-Verify that the Deployment in deploy/base/deployment.yaml has both a liveness probe
-and a readiness probe configured:
-  - livenessProbe:  HTTP GET /healthz on port 8080, initialDelaySeconds 5
-  - readinessProbe: HTTP GET /healthz on port 8080, initialDelaySeconds 3
-
-If either probe is missing or has wrong values, add or correct them.
+Check liveness and readiness probes on the Deployment. Fix if needed.
 ----
 
 Verify the probes are working after re-deploy:
 
 [source,sh,role=execute]
 ----
+APP_NAME="${APP_NAME:-fortune-cookie}"
 ROUTE=$(oc get route $APP_NAME -n ${APP_NAME}-dev -o jsonpath='{.spec.host}')
 curl -s https://${ROUTE}/healthz
 ----
@@ -83,24 +74,14 @@ curl -s https://${ROUTE}/healthz
 
 [source,text,role=execute]
 ----
-Perform a security and TLS audit of deploy/base/:
-
-1. Deployment: verify the pod securityContext sets runAsNonRoot: true and
-   seccompProfile.type: RuntimeDefault.
-   Verify the container securityContext sets allowPrivilegeEscalation: false,
-   capabilities.drop: ["ALL"], runAsNonRoot: true.
-   Do NOT add runAsUser — OpenShift assigns a UID from the namespace range automatically.
-
-2. Route: verify TLS termination is edge with insecureEdgeTerminationPolicy: Redirect.
-   Verify spec.host is NOT set (leave it empty — OpenShift auto-generates the hostname).
-
-Apply all fixes.
+Audit pod security and Route TLS in deploy/base/. Fix if needed.
 ----
 
 Verify the security context on the running pod:
 
 [source,sh,role=execute]
 ----
+APP_NAME="${APP_NAME:-fortune-cookie}"
 oc get pod -n ${APP_NAME}-dev -l app.kubernetes.io/name=$APP_NAME \
   -o jsonpath='{.items[0].spec.securityContext}' | python3 -m json.tool
 ----
@@ -120,6 +101,7 @@ Verify Route TLS:
 
 [source,sh,role=execute]
 ----
+APP_NAME="${APP_NAME:-fortune-cookie}"
 oc get route $APP_NAME -n ${APP_NAME}-dev \
   -o jsonpath='{.spec.tls.termination}'
 ----
@@ -134,6 +116,8 @@ edge
 
 [source,sh,role=execute]
 ----
+APP_NAME="${APP_NAME:-fortune-cookie}"
+
 echo "=== Resource Limits ==="
 oc get deployment $APP_NAME -n ${APP_NAME}-dev \
   -o jsonpath='{.spec.template.spec.containers[0].resources}' | python3 -m json.tool

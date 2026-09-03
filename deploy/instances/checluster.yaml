@@ -8,6 +8,12 @@ spec:
     cheServer:
       debug: false
       logLevel: INFO
+      deployment:
+        tolerations:
+          - key: nvidia.com/gpu
+            operator: Equal
+            value: present
+            effect: NoSchedule
     dashboard:
       logLevel: ERROR
     devWorkspace: {}
@@ -50,6 +56,12 @@ spec:
   networking:
     auth:
       gateway:
+        deployment:
+          tolerations:
+            - key: nvidia.com/gpu
+              operator: Equal
+              value: present
+              effect: NoSchedule
         configLabels:
           app: che
           component: che-gateway-config

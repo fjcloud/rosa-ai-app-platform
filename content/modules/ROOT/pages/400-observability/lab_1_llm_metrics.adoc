@@ -2,7 +2,7 @@
 
 Act 3 is required. You stood up an in-cluster coding agent this morning and spent the afternoon prompting it. That is real GPU time and real tokens. Look at the bill before you leave.
 
-The Fortune Cookie *app* does not call Qwen3.8 — it serves hard-coded strings. The GPU graph is OpenCode sessions (and the one-time model load), not HTTP hits to `/`.
+The GPU graph is OpenCode sessions (and the one-time model load), not HTTP hits to `/`.
 
 [NOTE]
 ====
@@ -13,7 +13,7 @@ The Fortune Cookie *app* does not call Qwen3.8 — it serves hard-coded strings.
 
 image::the-bill-observability.png[The bill — GPU and tokens, align="center"]
 
-Stay in the *Administrator* perspective of the OpenShift Web Console (Act 0). Every graph in this lab is there. The OpenShift AI dashboard is only for the token quota, not for GPU charts.
+Stay in the *Administrator* perspective of the OpenShift Web Console. Every graph in this lab is there. The OpenShift AI dashboard is only for the token quota, not for GPU charts.
 
 == Two surfaces
 
@@ -115,7 +115,7 @@ If a query returns *No datapoints*, stay in *Administrator* → *Observe → Met
 Graphs above are *usage*. The cap is the MaaS subscription — 5 000 000 tokens / 24h. Over quota the gateway returns HTTP 429.
 
 . In the OpenShift Web Console, open the *Application launcher* (the grid) → *Red Hat OpenShift AI*, or go to `https://rh-ai.apps.<apps-domain>/`.
-. Log in with the same cluster-admin as Act 0.
+. Log in with the same cluster user as `oc`.
 . Open *Gen AI* / *Models as a service*.
 . Find *Qwen3.8* / `qwen3` in the catalog. The workshop subscription is *5 000 000 tokens / 24h* for `system:authenticated`. Extra keys can be minted here; they do not replace the Dev Spaces Secret.
 

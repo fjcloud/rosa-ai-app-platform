@@ -307,7 +307,7 @@ def architecture() -> None:
     b.text((56, 662), "Act 3 — the bill", b.display(SECTION), fill=RED)
     b.card((56, 708, 1224, 840), "GPU metrics + token quota", "DCGM + MaaS subscription")
 
-    b.footer("The LLM writes the app. The app does not call the LLM.")
+    b.footer("The LLM writes the app. Qwen3.8 is a platform capability.")
     b.save(OUT_DIR / "architecture-overview.png")
 
 

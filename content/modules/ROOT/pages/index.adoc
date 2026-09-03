@@ -13,7 +13,7 @@ You wear two hats. In the morning you are the platform engineer (Alex): GPU, ope
 | Persona | Role in This Workshop
 
 | *Platform Engineer* (morning)
-| Provisions GPU capacity, installs operators, publishes Qwen3.8 behind a governed OpenAI-compatible API, and hands developers a short `AGENTS.md` (~45 lines) — not a runbook wiki.
+| Provisions GPU capacity, installs operators, publishes Qwen3.8 behind a governed OpenAI-compatible API, and hands developers a short `AGENTS.md` — not a runbook wiki.
 
 | *Developer* (afternoon)
 | Launches OpenShift Dev Spaces, talks to OpenCode backed by that in-cluster LLM, ships a real app through Tekton and Argo CD, then asks the same model to audit the manifests.
@@ -23,7 +23,7 @@ You wear two hats. In the morning you are the platform engineer (Alex): GPU, ope
 
 image::architecture-overview.png[In-cluster coding agent on ROSA, align="center"]
 
-The LLM writes the app. The Fortune Cookie app does *not* call the LLM — it serves hard-coded fortunes. Qwen3.8 is a *platform* capability.
+The LLM writes the app. Qwen3.8 is a *platform* capability.
 
 === Act 1 — Platform
 * A fixed-size *GPU machine pool* on ROSA — one NVIDIA L40S, no manual EC2
@@ -61,8 +61,8 @@ After completing this workshop, you will understand:
 
 | *0 — Get in*
 | —
-| Access your ROSA cluster, set up CLI credentials
-| 20 min
+| Clone this repo, confirm `oc` and `rosa`
+| 5 min
 
 .4+| *1 — Stand up the agent*
 | 1.1
@@ -115,9 +115,7 @@ After completing this workshop, you will understand:
 You will need:
 
 * A web browser
-* Access to the lab environment (credentials provided by your instructor)
-* A terminal — provided inside your Dev Space (no local install required)
-
-Everything else — `rosa`, `oc`, `kubectl`, the OpenCode CLI, the ephemeral Git client — is either pre-installed in the lab environment or installed during the workshop steps.
+* A terminal with `oc` logged into the ROSA cluster and a working `rosa` CLI
+* This workshop repository (cloned in Act 0) — not the Go app template
 
 Let's get started.

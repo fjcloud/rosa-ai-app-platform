@@ -36,55 +36,43 @@ Key parameters for the GPU pool:
 
 == Create the GPU Machine Pool
 
-. Set the cluster name variable (should already be in your shell from Act 0):
-+
-[source,sh,role=execute]
-----
-echo "Cluster: $CLUSTER_NAME  AZ: $AWS_AZ"
-----
-+
-.Expected Output
-[source,text,options=nowrap]
-----
-Cluster: rosa-abc12  AZ: eu-west-1a
-----
-+
-[WARNING]
-====
-If either variable is empty, run: `source $HOME/.bashrc`
-====
+Use your ROSA cluster name (`rosa list clusters`) and an availability zone that already has a worker (`oc get nodes -L topology.kubernetes.io/zone`).
 
-. Create the GPU machine pool:
-+
 [source,sh,role=execute]
 ----
 rosa create machine-pool \
-  --cluster $CLUSTER_NAME \
+  --cluster <cluster-name> \
   --name gpu \
   --replicas 1 \
   --instance-type g6e.xlarge \
-  --availability-zone $AWS_AZ \
+  --availability-zone <availability-zone> \
   --taints 'nvidia.com/gpu=present:NoSchedule'
 ----
-+
+
 .Sample Output
 [source,text,options=nowrap]
 ----
-I: Machine pool 'gpu' created successfully on cluster 'rosa-abc12'
-I: To view all machine pools, run 'rosa list machinepools -c rosa-abc12'
+I: Machine pool 'gpu' created successfully on cluster '<cluster-name>'
+I: To view all machine pools, run 'rosa list machinepools -c <cluster-name>'
 ----
-+
+
 [WARNING]
 ====
-If AWS returns `InsufficientInstanceCapacity` for `$AWS_AZ`, delete the pool and recreate it in another zone of the same region (`rosa delete machine-pool --cluster $CLUSTER_NAME --machinepool gpu`, then `rosa create machine-pool` with a different `--availability-zone`). GPU instance types are not available in every AZ at all times.
+If AWS returns `InsufficientInstanceCapacity`, delete the pool and recreate it in another zone of the same region (`rosa delete machine-pool --cluster <cluster-name> --machinepool gpu`, then `rosa create machine-pool` with a different `--availability-zone`). GPU instance types are not available in every AZ at all times.
 ====
 
-. Start a background wait for the GPU node to become Ready. This runs in the background — you will continue working on other labs while it completes:
-+
+Start a background wait for the GPU node to become Ready. `oc wait` only works after the node *exists* — poll until the label appears, then wait for Ready. Continue to the next lab while it completes:
+
 [source,sh,role=execute]
 ----
-oc wait node -l node.kubernetes.io/instance-type=g6e.xlarge \
-  --for=condition=Ready --timeout=600s &
+(
+  until oc get node -l node.kubernetes.io/instance-type=g6e.xlarge \
+      --no-headers 2>/dev/null | grep -q .; do
+    sleep 10
+  done
+  oc wait node -l node.kubernetes.io/instance-type=g6e.xlarge \
+    --for=condition=Ready --timeout=600s
+) &
 echo "GPU node wait started in background (PID $!)"
 ----
 
@@ -92,7 +80,7 @@ echo "GPU node wait started in background (PID $!)"
 
 [source,sh,role=execute]
 ----
-rosa list machinepools --cluster $CLUSTER_NAME
+rosa list machinepools --cluster <cluster-name>
 ----
 
 .Sample Output

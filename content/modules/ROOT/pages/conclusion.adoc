@@ -68,7 +68,7 @@ A single `rosa create machine-pool` command provisions NVIDIA hardware on AWS. D
 Platform conventions encoded in a Markdown file are read and enforced by the LLM at generation time. The developer gets a compliant app without opening a checklist.
 
 *4. The same LLM powers the developer inner loop.*
-OpenCode uses Qwen3.8 to write the Fortune Cookie app. The app itself is a simple Go service (hard-coded fortunes) — the LLM is the *platform* capability, not a runtime dependency of that demo.
+OpenCode uses Qwen3.8 to write the Fortune Cookie app. Qwen3.8 is a *platform* capability.
 
 *5. Observability closes the loop.*
 GPU utilization, token throughput, and TTFT are visible in the same console as all other cluster metrics. Token quotas on the MaaS gateway make consumption attributable.

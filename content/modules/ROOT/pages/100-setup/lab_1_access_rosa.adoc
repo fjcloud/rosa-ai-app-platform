@@ -1,149 +1,45 @@
 = Act 0 — Get in
 
-Log into your pre-provisioned ROSA cluster, verify `oc` and `rosa`, and confirm you are ready for the Monday story: an *in-cluster* coding agent. Source code stays on this cluster — no public LLM.
-
-Your cluster was provisioned before the workshop began. You do not create it.
+Clone this workshop repository, confirm `oc` is logged into a ROSA cluster, and confirm `rosa` works. All `oc apply -k deploy/...` commands in Act 1 run from this repo — not from the Go app template.
 
 [NOTE]
 ====
-*Estimated time:* 20 minutes
+*Estimated time:* 5 minutes
 ====
 
-== Your Lab Credentials
+== Clone the workshop
 
-Your instructor will provide the following details. Fill them in now — you will use them throughout the workshop.
+This is https://github.com/fjcloud/rosa-ai-app-platform[`fjcloud/rosa-ai-app-platform`] — operators, instances, inference, and lab assets. Stay in this directory for Act 1.
 
-[cols="1,2", options="header"]
-|===
-| Item | Value
-
-| Cluster Name
-| `rosa-{guid}`
-
-| OpenShift API URL
-| `{rosa_openshift_api_url}`
-
-| OpenShift Web Console
-| `{rosa_openshift_console_url}`
-
-| Admin User
-| `{rosa_openshift_admin_user}`
-
-| Admin Password
-| `{rosa_openshift_admin_password}`
-
-| AWS Region
-| `{aws_region}`
-
-| Availability Zone (GPU)
-| `{aws_az}`
-|===
-
-== Log In via the CLI
-
-. Save your credentials as environment variables so you can reuse them throughout the workshop:
-+
-[source,sh,role=execute,subs=attributes]
-----
-export GUID={guid}
-export CLUSTER_NAME=rosa-${GUID}
-export ADMIN_PASSWORD={rosa_openshift_admin_password}
-export AWS_AZ={aws_az}
-echo "GUID=$GUID  CLUSTER=$CLUSTER_NAME" 
-----
-+
-Save them to `.bashrc` so they persist across terminal sessions:
-+
 [source,sh,role=execute]
 ----
-cat >> $HOME/.bashrc << 'EOF'
-export GUID={guid}
-export CLUSTER_NAME=rosa-${GUID}
-export ADMIN_PASSWORD={rosa_openshift_admin_password}
-export AWS_AZ={aws_az}
-EOF
+git clone https://github.com/fjcloud/rosa-ai-app-platform.git
+cd rosa-ai-app-platform
 ----
 
-. Log into the cluster with the OpenShift CLI:
-+
-[source,sh,role=execute,subs=attributes]
-----
-oc login {rosa_openshift_api_url} \
-  --username {rosa_openshift_admin_user} \
-  --password {rosa_openshift_admin_password}
-----
-+
-.Sample Output
-[source,text,options=nowrap]
-----
-Login successful.
-You have access to 100 projects, the list is suppressed. You can list all with 'oc projects'.
-Using project "default".
-----
+== Cluster and ROSA CLI
 
-. Verify you are logged in and have cluster-admin rights:
-+
+You must already be logged in to the cluster (`oc`). The `rosa` CLI must work.
+
 [source,sh,role=execute]
 ----
 oc whoami && oc get nodes
-----
-+
-.Sample Output
-[source,text,options=nowrap]
-----
-cluster-admin
-NAME                                         STATUS   ROLES                  AGE   VERSION
-ip-10-0-1-20.eu-west-1.compute.internal     Ready    control-plane,master   3h    v1.29.8
-ip-10-0-2-45.eu-west-1.compute.internal     Ready    worker                 3h    v1.29.8
-ip-10-0-3-12.eu-west-1.compute.internal     Ready    worker                 3h    v1.29.8
-----
-+
-You should see two or three worker nodes. *No GPU node yet* — you will create it in Lab 1.1.
-
-. Verify the `rosa` CLI is available and authenticated:
-+
-[source,sh,role=execute]
-----
 rosa whoami
 ----
-+
-.Sample Output
-[source,text,options=nowrap]
-----
-AWS Account ID:               123456789012
-AWS Default Region:           eu-west-1
-OCM API:                      https://api.openshift.com
-OCM Account ID:               1abc2defghi3jklmno4
-OCM Account Name:             Workshop User
-OCM Account Username:         workshop-user@example.com
-OCM Organization ID:          1ABCDEFG
-OCM Organization Name:        Workshop Org
-----
 
-== Log In to the OpenShift Web Console
+You should see `cluster-admin` (or equivalent), two or three worker nodes, and a successful `rosa whoami`. *No GPU node yet* — that is Lab 1.1.
 
-. Get your console URL:
-+
+Console URL if you need the UI later:
+
 [source,sh,role=execute]
 ----
 oc whoami --show-console
 ----
 
-. Open the URL in your browser, select the *cluster-admin* identity provider, and log in with your credentials.
-+
-You should land on the *Administrator* overview page of the OpenShift Web Console.
-
-. Familiarize yourself with the left navigation:
-** *Home → Overview* — cluster health and capacity
-** *Compute → Nodes* — your current worker nodes
-** *Operators → Installed Operators* — where installed operators appear (currently empty)
-
 == Summary
 
-You now have:
-
-* [x] CLI access to your ROSA cluster (`oc`, `rosa`)
-* [x] Admin access to the OpenShift Web Console
-* [x] A clear picture of what you are building
+* [x] Workshop repo on disk (`rosa-ai-app-platform`)
+* [x] `oc` connected to the cluster
+* [x] `rosa` CLI working
 
 ➡️ Move on to *Act 1 — Stand up the agent* (Lab 1.1).

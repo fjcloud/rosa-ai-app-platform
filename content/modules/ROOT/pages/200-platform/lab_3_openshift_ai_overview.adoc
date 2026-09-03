@@ -66,24 +66,25 @@ curl https://maas.<apps-domain>/llm-serving/qwen3/v1/chat/completions \
 
 == ✅ Checkpoint: Operators Ready
 
-Lab 1.2 is still running in the background. Wait here before you apply instances.
+Lab 1.2 is still running in the background. Wait here before you apply instances. Re-apply operators first so the Tekton `git-clone` and `buildah` tasks land after the CRDs exist. `oc wait` only works after each Deployment exists.
 
 [source,sh,role=execute]
 ----
-oc wait deployment/devspaces-operator \
-  -n openshift-operators --for=condition=Available --timeout=300s
-oc wait deployment/nfd-controller-manager \
-  -n openshift-nfd --for=condition=Available --timeout=300s
-oc wait deployment/gpu-operator \
-  -n nvidia-gpu-operator --for=condition=Available --timeout=300s
-oc wait deployment/rhods-operator \
-  -n redhat-ods-operator --for=condition=Available --timeout=300s
-oc wait deployment/kuadrant-operator-controller-manager \
-  -n kuadrant-system --for=condition=Available --timeout=300s
-oc wait deployment/openshift-lws-operator \
-  -n openshift-lws-operator --for=condition=Available --timeout=300s
-oc wait deployment/cert-manager \
-  -n cert-manager --for=condition=Available --timeout=300s
+oc apply -k deploy/operators
+
+wait_deploy() {
+  local ns=$1 dep=$2
+  until oc get deploy/"$dep" -n "$ns" >/dev/null 2>&1; do sleep 5; done
+  oc wait deploy/"$dep" -n "$ns" --for=condition=Available --timeout=600s
+}
+
+wait_deploy openshift-operators devspaces-operator
+wait_deploy openshift-nfd nfd-controller-manager
+wait_deploy nvidia-gpu-operator gpu-operator
+wait_deploy redhat-ods-operator rhods-operator
+wait_deploy kuadrant-system kuadrant-operator-controller-manager
+wait_deploy openshift-lws-operator openshift-lws-operator
+wait_deploy cert-manager cert-manager
 ----
 
 .Expected Output
@@ -100,12 +101,12 @@ deployment.apps/cert-manager condition met
 
 [WARNING]
 ====
-If any `wait` times out, check `oc get pods -n <namespace>`. Common causes: image pull throttling, or worker CPU pressure (this workshop pins extra operator replicas onto the GPU node via tolerations).
+If any `wait` times out, check `oc get pods -n <namespace>`. Common causes: image pull throttling, or worker CPU pressure. Lab 1.3 `configure-platform.sh` scales LeaderWorkerSet to one replica so Dev Spaces can schedule on a 3-worker cluster.
 ====
 
 == Step 1: Create Platform Instances
 
-This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (Authorino TLS, bind the Gateway to *this* cluster's apps domain and wildcard cert, recycle Kuadrant after Gateway API CRDs exist, dashboard GPU taints and MaaS UI flags).
+This instantiates the serving control plane, Dev Spaces, GPU policies, and the MaaS gateway. One apply, then one configure script (LeaderWorkerSet to one replica so Dev Spaces has CPU, Authorino TLS, bind the Gateway to *this* cluster's apps domain and wildcard cert, recycle Kuadrant after Gateway API CRDs exist, dashboard GPU taints and MaaS UI flags).
 
 [source,sh,role=execute]
 ----
@@ -120,11 +121,12 @@ datasciencecluster.datasciencecluster.opendatahub.io/default-dsc created
 checluster.org.eclipse.che/devspaces created
 gateway.gateway.networking.k8s.io/maas-default-gateway created
 kuadrant.kuadrant.io/kuadrant created
+LeaderWorkerSet manager scaled to 1 (CPU headroom for Dev Spaces).
 Authorino TLS configured.
 MaaS Gateway bound to this cluster.
 Kuadrant operator recycled after Gateway API CRDs.
 Dashboard GPU-node tolerations and MaaS UI flags applied.
-Platform instances configured (Authorino TLS + MaaS Gateway + Kuadrant + dashboard).
+Platform instances configured (LWS CPU + Authorino TLS + MaaS Gateway + Kuadrant + dashboard).
 ----
 
 [NOTE]
@@ -156,25 +158,30 @@ Kuadrant registers Istio reconcilers only if the `EnvoyFilter` CRD exists when t
 
 === Wait for MaaS
 
+`chePhase` stays empty until the Dev Spaces gateway is scheduled. On a 3-worker cluster that can take several minutes. Wait until each object exists, then wait for Ready (15 minutes).
+
 [source,sh,role=execute]
 ----
+until oc get checluster/devspaces -n openshift-operators >/dev/null 2>&1; do sleep 5; done
 oc wait checluster/devspaces \
   -n openshift-operators \
   --for=jsonpath='{.status.chePhase}'=Active \
-  --timeout=300s
+  --timeout=900s
 
+until oc get datasciencecluster/default-dsc >/dev/null 2>&1; do sleep 5; done
 oc wait datasciencecluster/default-dsc \
   --for=jsonpath='{.status.conditions[?(@.type=="ModelsAsAServiceReady")].status}'=True \
-  --timeout=300s
+  --timeout=900s
 
 oc wait datasciencecluster/default-dsc \
   --for=jsonpath='{.status.conditions[?(@.type=="DashboardReady")].status}'=True \
-  --timeout=300s
+  --timeout=900s
 
+until oc get maastenantconfig/default-tenant -n models-as-a-service >/dev/null 2>&1; do sleep 5; done
 oc wait maastenantconfig/default-tenant \
   -n models-as-a-service \
   --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
-  --timeout=300s
+  --timeout=900s
 ----
 
 .Expected Output
@@ -196,8 +203,17 @@ This creates:
 * `LLMInferenceService/qwen3` — Red Hat vLLM CUDA 3.5.0 on the GPU node, attached to `maas-default-gateway`
 * `MaaSModelRef` (catalog), `MaaSAuthPolicy` (who can call it), `MaaSSubscription` (token quota)
 
+Wait until the GPU node is Ready, then apply:
+
 [source,sh,role=execute]
 ----
+until oc get node -l node.kubernetes.io/instance-type=g6e.xlarge \
+    --no-headers 2>/dev/null | grep -q .; do
+  sleep 10
+done
+oc wait node -l node.kubernetes.io/instance-type=g6e.xlarge \
+  --for=condition=Ready --timeout=600s
+
 oc apply -k deploy/inference
 ----
 
@@ -247,13 +263,14 @@ The image is *Red Hat AI Inference* CUDA (`rhaii/vllm-cuda-rhel9:3.5.0`) — not
 
 === Let the model load in the background
 
-A cold cluster downloads ~18 GiB from Hugging Face into PVC `qwen-model-cache` (`HF_HOME=/opt/models`). If that cache is empty, first Ready can take 10–20 minutes. If weights are already on the PVC, vLLM mainly loads them into GPU memory (~5–8 minutes).
+A cold cluster downloads ~18 GiB from Hugging Face into PVC `qwen-model-cache` (`HF_HOME=/opt/models`). If that cache is empty, first Ready can take 10–20 minutes. If weights are already on the PVC, vLLM mainly loads them into GPU memory (~5–8 minutes). Wait in the background for 20 minutes so a cold pull can finish:
 
 [source,sh,role=execute]
 ----
+until oc get llminferenceservice/qwen3 -n llm-serving >/dev/null 2>&1; do sleep 5; done
 oc wait llminferenceservice/qwen3 -n llm-serving \
   --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
-  --timeout=600s &
+  --timeout=1200s &
 echo "Model wait started in background (PID $!)"
 ----
 
