@@ -75,7 +75,7 @@ GPU utilization, token throughput, and TTFT are visible in the same console as a
 
 == What We Did Not Cover (But You Can Explore)
 
-* *LLM autoscaling with KEDA:* The workshop uses a fixed single replica for predictability. In production, proper LLM autoscaling should be driven by pending request queue depth using KEDA with vLLM Prometheus metrics — CPU/memory-based HPA is not meaningful for GPU inference workloads.
+* *LLM scale-out with llm-d:* This workshop pins one vLLM replica. OpenShift AI's path is *Distributed Inference with llm-d* on `LLMInferenceService`: vLLM engines, an inference gateway and scheduler, KV-cache-aware routing, and LeaderWorkerSet when the model spans GPUs or nodes. Replica count is still moved by *KEDA* (it owns the HPA). The scaling *signal* is the workload variant autoscaler (WVA) — KV cache (`vllm:kv_cache_usage_perc`) and queue (`vllm:num_requests_waiting`), not CPU or memory. WVA is Developer Preview in OpenShift AI 3.5.
 * *Multi-environment GitOps:* Add `deploy/overlays/stage/` and `deploy/overlays/prod/` with Kustomize overlays; use separate Argo CD `Application` objects per environment
 * *Webhook-triggered pipelines:* Add an `EventListener` + `TriggerBinding` to Tekton so `git push` triggers builds automatically
 * *Application autoscaling:* Add an HPA to the Fortune Cookie `Deployment` to scale based on HTTP requests

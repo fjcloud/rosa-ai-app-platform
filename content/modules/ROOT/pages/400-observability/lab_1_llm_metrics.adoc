@@ -105,7 +105,7 @@ Names use a *colon* (`vllm:generation_tokens_total`), not an underscore. Namespa
 | In-flight requests. 0 when idle.
 
 | `vllm:num_requests_waiting{namespace="llm-serving"}`
-| Queue. 0 unless the GPU is saturated. This workshop is one GPU; production would autoscale on this.
+| Queue. 0 unless the GPU is saturated. llm-d's WVA uses this (and KV-cache %) when KEDA scales replicas.
 |===
 
 If a query returns *No datapoints*, stay in *Administrator* → *Observe → Metrics* (not the Developer perspective) and confirm `LLMInferenceService/qwen3` is Ready. User-workload monitoring is already on.
