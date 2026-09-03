@@ -13,7 +13,7 @@ You wear two hats. In the morning you are the platform engineer (Alex): GPU, ope
 | Persona | Role in This Workshop
 
 | *Platform Engineer* (morning)
-| Provisions GPU capacity, installs operators, publishes Qwen3.8 behind a governed OpenAI-compatible API, and hands developers a short `AGENTS.md` — not a runbook wiki.
+| Provisions GPU capacity, installs operators, publishes Qwen3.8 behind a governed OpenAI-compatible API, and hands developers a short `AGENTS.md`.
 
 | *Developer* (afternoon)
 | Launches OpenShift Dev Spaces, talks to OpenCode backed by that in-cluster LLM, ships a real app through Tekton and Argo CD, then asks the same model to audit the manifests.
