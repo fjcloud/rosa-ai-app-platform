@@ -2,6 +2,8 @@
 
 This repository holds the instructions for the ROSA Workshop.
 
+Act 0 creates the ROSA hosted control plane cluster from an empty AWS account with https://github.com/fjcloud/rosa-quickstart[fjcloud/rosa-quickstart].
+
 Instruction pages are in content/modules/ROOT/pages.
 
 To be intended to be used with Red Hat Demo Platform Showroom but can be built using Antora as well.

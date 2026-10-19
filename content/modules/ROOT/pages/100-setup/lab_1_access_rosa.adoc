@@ -1,45 +1,102 @@
 = Act 0 — Get in
 
-Clone this workshop repository, confirm `oc` is logged into a ROSA cluster, and confirm `rosa` works. All `oc apply -k deploy/...` commands in Act 1 run from this repo — not from the Go app template.
+The AWS account is empty. This lab creates a ROSA hosted control plane cluster with https://github.com/fjcloud/rosa-quickstart[`fjcloud/rosa-quickstart`], logs `oc` in, and leaves you in this repository for every later `oc apply -k deploy/...` command.
 
 [NOTE]
 ====
-*Estimated time:* 5 minutes
+*Estimated time:* 45 minutes (about 15 active, the rest is ROSA provisioning) +
+*Persona:* Platform Engineer +
+*Blocking:* Act 1 starts after `oc get nodes` shows the workers. Lab 1.1 adds the GPU machine pool. It does not create the cluster.
 ====
 
-== Clone the workshop
+== From the browser
 
-This is https://github.com/fjcloud/rosa-ai-app-platform[`fjcloud/rosa-ai-app-platform`] — operators, instances, inference, and lab assets. Stay in this directory for Act 1.
+In the workshop terminal, choose *AWS*. *Start* opens a shell in the lab AWS account and signs in the AWS CLI and the ROSA CLI. Stay in that shell for this lab.
+
+== Prerequisites
+
+Have these before you paste the commands:
+
+* The workshop shell, already signed in to the lab account. `aws sts get-caller-identity` works. Do not run a separate AWS login.
+* A Red Hat Cloud Services service account from https://console.redhat.com/iam/service-accounts[console.redhat.com/iam/service-accounts]. You will paste its client id and client secret into `.env` in the shell. Do not commit that file.
+* Quota in the shell's region for the smallest ROSA HCP cluster: *8* Standard On-Demand vCPUs (two 4-vCPU workers), *1* NAT gateway per Availability Zone, *1* VPC Elastic IP, and *1* VPC. `make prereq` checks these and prints the request command when one is short.
+
+`make prereq` also does the account work that used to be a separate getting-started page. It creates and links the OpenShift Cluster Manager role and the user role, creates the load-balancer service-linked role, installs Terraform when it is missing, and writes `terraform.tfvars` when you do not already have one. That file selects one availability zone, two workers, and the current hosted control plane OpenShift version in the shell's region.
+
+== Clone the cluster repository
+
+https://github.com/fjcloud/rosa-quickstart[`fjcloud/rosa-quickstart`] creates the cluster. This workshop repository is the next clone. It holds the operators and the lab assets.
 
 [source,sh,role=execute]
 ----
-git clone https://github.com/fjcloud/rosa-ai-app-platform.git
-cd rosa-ai-app-platform
+if ! command -v git >/dev/null 2>&1; then
+  dnf install -y git
+fi
+git clone https://github.com/fjcloud/rosa-quickstart.git
+cd rosa-quickstart
 ----
 
-== Cluster and ROSA CLI
+== Red Hat credentials
 
-You must already be logged in to the cluster (`oc`). The `rosa` CLI must work.
+Replace the two placeholders with the service account you created. The file stays in this directory and is gitignored.
 
 [source,sh,role=execute]
 ----
+cat > .env <<'EOF'
+export RHCS_CLIENT_ID="paste-client-id"
+export RHCS_CLIENT_SECRET="paste-client-secret"
+EOF
+chmod 600 .env
+----
+
+== Create the cluster
+
+`NAME` must be a ROSA cluster name: lowercase, start with a letter, at most 15 characters. This command links the AWS account, checks quota, then creates `rosa-ai`. Provisioning continues after the plan is applied. The command waits until the workers are ready, then prints an `oc login` command. The admin password in that command is generated for this cluster. Do not commit it.
+
+[source,sh,role=execute]
+----
+if ! command -v make >/dev/null 2>&1; then
+  dnf install -y make
+fi
+make deploy NAME=rosa-ai
+----
+
+If quota is short, the command stops before it creates anything and prints an `aws service-quotas request-service-quota-increase` command. Raise that quota, then run `make deploy NAME=rosa-ai` again.
+
+== Log in
+
+[source,sh,role=execute]
+----
+eval "$(TF_WORKSPACE=rosa-ai terraform output -raw oc_login_command)"
 oc whoami && oc get nodes
-rosa whoami
 ----
 
-You should see `cluster-admin` (or equivalent), two or three worker nodes, and a successful `rosa whoami`. *No GPU node yet* — that is Lab 1.1.
+You should see `cluster-admin` and two Ready workers. There is no GPU node yet. That is Lab 1.1.
 
-Console URL if you need the UI later:
+Console URL:
 
 [source,sh,role=execute]
 ----
 oc whoami --show-console
 ----
 
+== Clone the workshop
+
+Later labs run from this repository.
+
+[source,sh,role=execute]
+----
+cd "${HOME}"
+git clone https://github.com/fjcloud/rosa-ai-app-platform.git
+cd rosa-ai-app-platform
+oc whoami && oc get nodes
+----
+
 == Summary
 
-* [x] Workshop repo on disk (`rosa-ai-app-platform`)
+* [x] ROSA HCP cluster `rosa-ai` created with `fjcloud/rosa-quickstart`
+* [x] AWS account linked to the Red Hat org, with quota checked
 * [x] `oc` connected to the cluster
-* [x] `rosa` CLI working
+* [x] Workshop repo on disk (`rosa-ai-app-platform`)
 
 ➡️ Move on to *Act 1 — Stand up the agent* (Lab 1.1).
