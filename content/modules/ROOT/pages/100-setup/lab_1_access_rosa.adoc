@@ -13,7 +13,7 @@ The AWS account is empty. This lab creates a ROSA hosted control plane cluster w
 
 Open https://cloud-terminal.azurewebsites.net/[Cloud Terminal], choose *AWS*, then *rosa-ai-app-platform*. Enter your assigned workshop id (or catalog URL), email and workshop password. *Start* opens a shell in the lab AWS account and signs in the AWS CLI and the ROSA CLI. Wait for the terminal to be ready and stay in that shell for this lab.
 
-Closing the browser keeps the container; opening the launcher again reconnects to it. *Remove terminal* deletes the shell and its files, while keeping the AWS lab account. Red Hat service accounts expire at midnight in Europe/Paris; start again after midnight to get fresh credentials.
+Closing the browser keeps the container; opening the launcher again reconnects to it. *Remove terminal* deletes the shell and its files, while keeping the AWS lab account. Red Hat service accounts and OCM links created by the launcher expire at midnight in Europe/Paris; start again after midnight to refresh them. Existing OCM links are preserved.
 
 == Prerequisites
 
@@ -21,9 +21,10 @@ Have these before you paste the commands:
 
 * The workshop shell, already signed in to the lab account. `aws sts get-caller-identity` works. Do not run a separate AWS login.
 * The launcher supplies a Red Hat service account in `~/.rhcs.env` and signs in ROSA. You can reuse that file; no credentials need to be copied from the catalog. On your own machine, supply a service account from https://console.redhat.com/iam/service-accounts[console.redhat.com/iam/service-accounts].
+* The organizer must have an eligible ROSA HCP Marketplace billing account linked to that Red Hat organization. An OCM role link alone does not enable billing. By default, the lab account pays; if the organizer supplies a different eligible payer, use `BILLING_ACCOUNT_ID=<12-digit-account>` with `make deploy`.
 * Quota in the shell's region for the smallest ROSA HCP cluster: *8* Standard On-Demand vCPUs (two 4-vCPU workers), *1* NAT gateway per Availability Zone, *1* VPC Elastic IP, and *1* VPC. `make prereq` checks these and prints the request command when one is short.
 
-`make prereq` also does the account work that used to be a separate getting-started page. It creates and links the OpenShift Cluster Manager role and the user role, creates the load-balancer service-linked role, installs Terraform when it is missing, and writes `terraform.tfvars` when you do not already have one. That file selects one availability zone, two workers, and the current hosted control plane OpenShift version in the shell's region.
+The launcher prepares a missing OCM role using `rosa create ocm-role --no-console --mode auto --prefix CloudTerminal --yes`. `make prereq` preserves existing links, prepares the role when necessary outside the launcher, and checks Marketplace billing before Terraform creates network or cluster resources. It also prepares the load-balancer service-linked role, installs Terraform when missing, checks quota, and writes `terraform.tfvars` when absent. That file selects one availability zone, two workers, and the current hosted control plane OpenShift version in the shell's region.
 
 == Clone the cluster repository
 
@@ -55,7 +56,7 @@ The AWS command shows the lab account id and `rosa whoami` succeeds. The Red Hat
 
 == Create the cluster
 
-`NAME` must be a ROSA cluster name: lowercase, start with a letter, at most 15 characters. This command links the AWS account, checks quota, then creates `rosa-ai`. Provisioning continues after the plan is applied. The command waits until the workers are ready, then prints an `oc login` command. The admin password in that command is generated for this cluster. Do not commit it.
+`NAME` must be a ROSA cluster name: lowercase, start with a letter, at most 15 characters. This command checks OCM linking, billing and quota, then creates `rosa-ai`. Provisioning continues after the plan is applied. The command waits until the workers are ready, then prints an `oc login` command. The admin password in that command is generated for this cluster. Do not commit it.
 
 [source,sh,role=execute]
 ----
@@ -65,7 +66,9 @@ fi
 make deploy NAME=rosa-ai
 ----
 
-If quota is short, the command stops before it creates anything and prints an `aws service-quotas request-service-quota-increase` command. Raise that quota, then run `make deploy NAME=rosa-ai` again.
+If billing is not linked, ask the organizer to complete the Marketplace association in the https://console.aws.amazon.com/rosa/home#/get-started[AWS ROSA console] with the correct Red Hat organization, or supply an eligible payer with `make deploy NAME=rosa-ai BILLING_ACCOUNT_ID=<12-digit-account>`. Changing the OCM role does not fix a missing billing association.
+
+If quota is short, the command stops before Terraform creates network or cluster resources and prints an `aws service-quotas request-service-quota-increase` command. Raise that quota, then run `make deploy NAME=rosa-ai` again.
 
 == Log in
 
