@@ -11,14 +11,16 @@ The AWS account is empty. This lab creates a ROSA hosted control plane cluster w
 
 == From the browser
 
-In the workshop terminal, choose *AWS*. *Start* opens a shell in the lab AWS account and signs in the AWS CLI and the ROSA CLI. Stay in that shell for this lab.
+Open https://cloud-terminal.azurewebsites.net/[Cloud Terminal], choose *AWS*, then *rosa-ai-app-platform*. Enter your assigned workshop id (or catalog URL), email and workshop password. *Start* opens a shell in the lab AWS account and signs in the AWS CLI and the ROSA CLI. Wait for the terminal to be ready and stay in that shell for this lab.
+
+Closing the browser keeps the container; opening the launcher again reconnects to it. *Remove terminal* deletes the shell and its files, while keeping the AWS lab account. Red Hat service accounts expire at midnight in Europe/Paris; start again after midnight to get fresh credentials.
 
 == Prerequisites
 
 Have these before you paste the commands:
 
 * The workshop shell, already signed in to the lab account. `aws sts get-caller-identity` works. Do not run a separate AWS login.
-* A Red Hat Cloud Services service account from https://console.redhat.com/iam/service-accounts[console.redhat.com/iam/service-accounts]. You will paste its client id and client secret into `.env` in the shell. Do not commit that file.
+* The launcher supplies a Red Hat service account in `~/.rhcs.env` and signs in ROSA. You can reuse that file; no credentials need to be copied from the catalog. On your own machine, supply a service account from https://console.redhat.com/iam/service-accounts[console.redhat.com/iam/service-accounts].
 * Quota in the shell's region for the smallest ROSA HCP cluster: *8* Standard On-Demand vCPUs (two 4-vCPU workers), *1* NAT gateway per Availability Zone, *1* VPC Elastic IP, and *1* VPC. `make prereq` checks these and prints the request command when one is short.
 
 `make prereq` also does the account work that used to be a separate getting-started page. It creates and links the OpenShift Cluster Manager role and the user role, creates the load-balancer service-linked role, installs Terraform when it is missing, and writes `terraform.tfvars` when you do not already have one. That file selects one availability zone, two workers, and the current hosted control plane OpenShift version in the shell's region.
@@ -38,16 +40,18 @@ cd rosa-quickstart
 
 == Red Hat credentials
 
-Replace the two placeholders with the service account you created. The file stays in this directory and is gitignored.
+Reuse the account prepared by the launcher. The symlink stays in this directory and is gitignored. Stop here and restart the terminal if the file is absent; do not deploy using the container's infrastructure role.
 
 [source,sh,role=execute]
 ----
-cat > .env <<'EOF'
-export RHCS_CLIENT_ID="paste-client-id"
-export RHCS_CLIENT_SECRET="paste-client-secret"
-EOF
-chmod 600 .env
+test -s "$HOME/.rhcs.env" || { echo 'Restart Cloud Terminal to obtain Red Hat credentials.'; false; }
+ln -sfn "$HOME/.rhcs.env" .env
+set -a; source .env; set +a
+aws sts get-caller-identity --query Account --output text
+rosa whoami
 ----
+
+The AWS command shows the lab account id and `rosa whoami` succeeds. The Red Hat secret is never printed. If your terminal includes `workshop-tools`, run `workshop-tools check aws` to check all workshop tools before deploying.
 
 == Create the cluster
 
