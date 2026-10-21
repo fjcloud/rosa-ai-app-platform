@@ -41,6 +41,24 @@ The `g6e.xlarge` instance has one NVIDIA L40S GPU. The taint reserves it for wor
 The node incurs AWS charges while running. Keep this pool at one node for the workshop. The account needs at least 4 available *Running On-Demand G and VT instances* vCPUs in the cluster's region, and `g6e.xlarge` must be available in the selected subnet's zone.
 ====
 
+.Optional: use Spot for the GPU worker
+[%collapsible]
+====
+Use a current ROSA CLI with HCP Spot support (tested with https://github.com/openshift/rosa/releases/tag/v1.2.66[1.2.66]) and a cluster version that enables Spot. Add `--use-spot-instances` to the creation command above. Choose Spot when creating the pool; an existing pool cannot be converted in place.
+
+Spot uses the separate *All G and VT Spot Instance Requests* quota; this worker needs 4 available vCPUs. The default maximum price is the on-demand price. AWS can reclaim the node, interrupting model serving; GPU capacity is still required. See the https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws/4/epub/install_clusters/rosa-hcp-config-aws-spot-instances-cli[Red Hat Spot guide].
+
+Verify that Spot was actually enabled:
+
+[source,sh,role=execute]
+----
+rosa describe machinepool --cluster "$CLUSTER" --machinepool gpu -o json |
+  jq -e '.aws_node_pool.spot_market_options != null'
+----
+
+The result must be `true`. ROSA CLI 1.2.53 ignores the Spot flag for HCP pools. With CLI 1.2.66, the supplied 4.19.49 environment explicitly rejected Spot with `Spot Market Options are not allowed for this version`. Use an environment with Spot support before choosing this option.
+====
+
 == Check the request
 
 [source,sh,role=execute]
