@@ -207,15 +207,10 @@ Wait until the GPU node is Ready, then apply:
 
 [source,sh,role=execute]
 ----
-until oc get node -l node.kubernetes.io/instance-type=g6e.xlarge \
-    --no-headers 2>/dev/null | grep -q .; do
-  sleep 10
-done
-oc wait node -l node.kubernetes.io/instance-type=g6e.xlarge \
-  --for=condition=Ready --timeout=600s
-
-oc apply -k deploy/inference
+bash scripts/wait-for-gpu.sh && oc apply -k deploy/inference
 ----
+
+The readiness check waits up to 20 minutes, including time for the node to appear. If it fails, check the `gpu` machine pool with your facilitator before deploying the model.
 
 .Sample Output
 [source,text,options=nowrap]

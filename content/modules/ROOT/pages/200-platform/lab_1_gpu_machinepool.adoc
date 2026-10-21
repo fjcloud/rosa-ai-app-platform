@@ -1,95 +1,94 @@
 = Lab 1.1 — Deploy a GPU Machine Pool
 
-Act 1 starts here. Add a GPU-backed machine pool to your ROSA cluster. This is the NVIDIA L40S that will run Qwen3.8 — the in-cluster model OpenCode will call this afternoon.
+Add one NVIDIA L40S worker to your existing ROSA hosted control plane (HCP) cluster. It will run the workshop's model.
 
 [NOTE]
 ====
-*Estimated time:* 15 minutes (5 min active + ~10 min wait) +
-*Persona:* Platform Engineer +
-*Fire and forget:* Trigger this lab first, then move on. The GPU node will be ready by the time you need it.
+*Estimated time:* 15–20 minutes, mostly provisioning. Create the pool now, then continue to the next lab.
 ====
 
-[IMPORTANT]
-====
-GPU nodes are expensive. The `g6e.xlarge` instance (NVIDIA L40S, 48 GB VRAM) costs approximately $1.65/hr on AWS. The pool is fixed at one node for this workshop to keep costs predictable.
-====
+== Create the GPU pool
 
-== Understanding ROSA Machine Pools
-
-A *machine pool* is a group of worker nodes with a shared configuration (instance type, labels, taints). ROSA manages the lifecycle of these nodes — provisioning, replacing failed nodes — so you don't have to interact with AWS EC2 directly.
-
-Key parameters for the GPU pool:
-
-[cols="1,2", options="header"]
-|===
-| Parameter | Value & Rationale
-
-| `--instance-type g6e.xlarge`
-| 1× NVIDIA L40S (48 GB VRAM), enough for Qwen3.8-27B INT4
-
-| `--replicas 1`
-| Fixed single GPU node — sufficient for this workshop and keeps costs predictable
-
-| `--taints nvidia.com/gpu=present:NoSchedule`
-| Prevents non-GPU workloads (dev pods, build pods) from landing on expensive GPU nodes
-|===
-
-== Create the GPU Machine Pool
-
-Use your ROSA cluster name (`rosa list clusters`) and an availability zone that already has a worker (`oc get nodes -L topology.kubernetes.io/zone`).
+Run these commands in the bastion terminal from Act 0. They use the cluster you are logged in to and reuse an existing worker subnet. No cluster name or availability zone needs replacing.
 
 [source,sh,role=execute]
 ----
-rosa create machine-pool \
-  --cluster <cluster-name> \
+CLUSTER=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+SUBNET=$(rosa list machinepools --cluster "$CLUSTER" -o json | jq -er '.[0].subnet')
+rosa list machinepools --cluster "$CLUSTER"
+----
+
+If `gpu` already exists with type `g6e.xlarge` and one desired replica, skip creation and continue to the next lab. Otherwise, create it:
+
+[source,sh,role=execute]
+----
+rosa create machinepool \
+  --cluster "$CLUSTER" \
   --name gpu \
   --replicas 1 \
   --instance-type g6e.xlarge \
-  --availability-zone <availability-zone> \
-  --taints 'nvidia.com/gpu=present:NoSchedule'
+  --subnet "$SUBNET" \
+  --taints 'nvidia.com/gpu=present:NoSchedule' \
+  --yes
 ----
 
-.Sample Output
-[source,text,options=nowrap]
-----
-I: Machine pool 'gpu' created successfully on cluster '<cluster-name>'
-I: To view all machine pools, run 'rosa list machinepools -c <cluster-name>'
-----
+The `g6e.xlarge` instance has one NVIDIA L40S GPU. The taint reserves it for workloads that explicitly tolerate `nvidia.com/gpu=present:NoSchedule`.
 
-[WARNING]
+[IMPORTANT]
 ====
-If AWS returns `InsufficientInstanceCapacity`, delete the pool and recreate it in another zone of the same region (`rosa delete machine-pool --cluster <cluster-name> --machinepool gpu`, then `rosa create machine-pool` with a different `--availability-zone`). GPU instance types are not available in every AZ at all times.
+The node incurs AWS charges while running. Keep this pool at one node for the workshop. The account needs at least 4 available *Running On-Demand G and VT instances* vCPUs in the cluster's region, and `g6e.xlarge` must be available in the selected subnet's zone.
 ====
 
-Start a background wait for the GPU node to become Ready. `oc wait` only works after the node *exists* — poll until the label appears, then wait for Ready. Continue to the next lab while it completes:
+== Check the request
 
 [source,sh,role=execute]
 ----
-(
-  until oc get node -l node.kubernetes.io/instance-type=g6e.xlarge \
-      --no-headers 2>/dev/null | grep -q .; do
-    sleep 10
-  done
-  oc wait node -l node.kubernetes.io/instance-type=g6e.xlarge \
-    --for=condition=Ready --timeout=600s
-) &
-echo "GPU node wait started in background (PID $!)"
+rosa list machinepools --cluster "$CLUSTER"
 ----
 
-== ✅ Checkpoint
+Look for `gpu` with instance type `g6e.xlarge` and one desired replica. `0/1` means the node is still provisioning; `1/1` means it has joined.
+
+[NOTE]
+====
+`InstanceLimitExceeded` or `VcpuLimitExceeded` means the facilitator must increase the regional GPU quota. `InsufficientInstanceCapacity` means AWS cannot currently supply the GPU in this zone. Ask the facilitator to select another existing worker subnet supported by the cluster; changing only `--availability-zone` does not select an HCP worker subnet.
+====
+
+.Facilitator: use another zone when GPU capacity is unavailable
+[%collapsible]
+====
+If the VPC has no private subnet in a zone with GPU capacity, prepare one:
 
 [source,sh,role=execute]
 ----
-rosa list machinepools --cluster <cluster-name>
+read -rp 'Availability zone with GPU capacity: ' GPU_ZONE
+SUBNET=$(bash scripts/prepare-gpu-subnet.sh "$GPU_ZONE")
 ----
 
-.Sample Output
-[source,text,options=nowrap]
+Choose a zone in the cluster's region, such as `us-east-1a` for a `us-east-1` cluster. The helper creates a free `/24` subnet in the existing VPC, tags it for this cluster, and reuses the worker subnet's NAT route. Repeating it reuses that subnet. It does not reserve GPU capacity.
+
+If the new `gpu` request failed before any node joined, delete that empty request:
+
+[source,sh,role=execute]
 ----
-ID   AUTOSCALING  REPLICAS  INSTANCE TYPE  LABELS  TAINTS                              AVAILABILITY ZONES  SUBNETS  SPOT  DISK SIZE  SG IDs
-gpu  No           1         g6e.xlarge             nvidia.com/gpu=present:NoSchedule   eu-west-1a
+rosa delete machinepool --cluster "$CLUSTER" --machinepool gpu --yes
 ----
 
-The `gpu` machine pool is created. ✓
+Run the creation command above again, keeping the new `SUBNET` value.
 
-➡️ Move immediately to the next lab. *Do not wait for the node* — it will be ready by the time you need it.
+After the workshop, delete the GPU pool and wait for its instance to terminate. Then remove the additional subnet:
+
+[source,sh,role=execute]
+----
+aws ec2 delete-subnet \
+  --region "$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')" \
+  --subnet-id "$SUBNET"
+----
+
+Only remove the subnet returned by `prepare-gpu-subnet.sh`; the original worker subnet belongs to the base environment.
+====
+
+== Checkpoint
+
+The `gpu` pool has been requested. Continue to *Lab 1.2 — Install Operators* while ROSA provisions the node. Lab 1.3 checks node readiness before deploying the model.
+
+See the https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws/4/html/cluster_administration/managing-compute-nodes-using-machine-pools[ROSA machine-pool documentation] for the available options.

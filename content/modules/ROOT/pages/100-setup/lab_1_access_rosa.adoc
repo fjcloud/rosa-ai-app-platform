@@ -28,7 +28,7 @@ rosa whoami
 rosa list clusters
 ----
 
-Use the *existing cluster name supplied by your facilitator* in later `rosa` commands. In the standard ROSA workshop it is `rosa-<environment-guid>`. Do not create a second cluster or change its billing account.
+Use the *existing ROSA HCP cluster* supplied by your facilitator. Lab 1.1 reads its ID from your OpenShift login and reuses an existing worker subnet. Do not create a second cluster or change its billing account.
 
 == Log in to OpenShift
 
