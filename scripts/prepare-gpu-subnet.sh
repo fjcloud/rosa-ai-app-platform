@@ -7,12 +7,18 @@ zone=${1:?Usage: bash scripts/prepare-gpu-subnet.sh <availability-zone>}
 cluster=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
 region=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
 [[ "$zone" == "$region"[a-z] ]] || { echo 'Choose a zone in the cluster region.' >&2; exit 1; }
-rosa describe cluster --cluster "$cluster" -o json | jq -e '.hypershift.enabled == true' >/dev/null
+rosa describe cluster --cluster "$cluster" -o json | jq -e '.hypershift.enabled == true' >/dev/null || {
+  echo 'This helper requires an existing ROSA HCP cluster.' >&2
+  exit 1
+}
 
 worker=$(rosa list machinepools --cluster "$cluster" -o json | jq -er '[.[] | select(.id != "gpu")][0].subnet')
 vpc=$(aws ec2 describe-subnets --region "$region" --subnet-ids "$worker" --query 'Subnets[0].VpcId' --output text)
 routes=$(aws ec2 describe-route-tables --region "$region" --filters "Name=association.subnet-id,Values=$worker" --output json)
-route=$(jq -er '.RouteTables[0] | select(any(.Routes[]; .DestinationCidrBlock == "0.0.0.0/0" and .NatGatewayId != null and .State == "active")) | .RouteTableId' <<< "$routes")
+route=$(jq -er '.RouteTables[0] | select(any(.Routes[]; .DestinationCidrBlock == "0.0.0.0/0" and .NatGatewayId != null and .State == "active")) | .RouteTableId' <<< "$routes") || {
+  echo 'No explicit private worker route table with an active NAT route was found. Ask the facilitator to prepare the network.' >&2
+  exit 1
+}
 
 existing=$(aws ec2 describe-subnets --region "$region" --filters "Name=vpc-id,Values=$vpc" "Name=availability-zone,Values=$zone" "Name=tag:cloud-terminal/gpu-cluster,Values=$cluster" --query 'Subnets[].SubnetId' --output text)
 if [[ -n "$existing" ]]; then
@@ -23,7 +29,10 @@ fi
 
 aws ec2 describe-instance-type-offerings --region "$region" --location-type availability-zone \
   --filters Name=instance-type,Values=g6e.xlarge "Name=location,Values=$zone" \
-  --output json | jq -e '.InstanceTypeOfferings | length > 0' >/dev/null
+  --output json | jq -e '.InstanceTypeOfferings | length > 0' >/dev/null || {
+  echo "g6e.xlarge is not offered in $zone. Choose another zone in $region." >&2
+  exit 1
+}
 
 vpc_cidr=$(aws ec2 describe-vpcs --region "$region" --vpc-ids "$vpc" --query 'Vpcs[0].CidrBlock' --output text)
 used=$(aws ec2 describe-subnets --region "$region" --filters "Name=vpc-id,Values=$vpc" --query 'Subnets[].CidrBlock' --output json)

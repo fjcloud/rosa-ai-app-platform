@@ -34,3 +34,9 @@ bash e2e/dev-run.sh
 | `MAAS_HOST` | `maas.<apps-domain>` | MaaS gateway hostname |
 
 The scripts exit 0 if all checks pass, 1 if any fail. Each check prints ✅ or ⚠️ FAIL.
+
+## GPU provisioning validation — 2026-10-21
+
+The guide's creation command was accepted by ROSA CLI 1.2.53 on an existing ROSA HCP 4.19.49 cluster. Cluster/subnet discovery, the single replica, and the GPU taint were checked live. The alternate-zone subnet helper also passed creation and reuse checks; unused test subnets were removed.
+
+AWS rejected `g6e.xlarge` launches in all four supported `us-east-1` zones with `InsufficientInstanceCapacity`. Attempts to reserve one `g6e.2xlarge` or `g6e.4xlarge` also failed in every zone. No reservation was created and no GPU worker became Ready. GPU driver and model execution remain unverified; the full platform guide requires OpenShift 4.22 or later.

@@ -13,8 +13,10 @@ Run these commands in the bastion terminal from Act 0. They use the cluster you 
 
 [source,sh,role=execute]
 ----
-CLUSTER=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-SUBNET=$(rosa list machinepools --cluster "$CLUSTER" -o json | jq -er '.[0].subnet')
+CLUSTER=$(oc get infrastructure cluster \
+  -o jsonpath='{.status.infrastructureName}')
+SUBNET=$(rosa list machinepools --cluster "$CLUSTER" -o json |
+  jq -er '.[0].subnet')
 rosa list machinepools --cluster "$CLUSTER"
 ----
 
@@ -75,7 +77,7 @@ rosa delete machinepool --cluster "$CLUSTER" --machinepool gpu --yes
 
 Run the creation command above again, keeping the new `SUBNET` value.
 
-After the workshop, delete the GPU pool and wait for its instance to terminate. Then remove the additional subnet:
+After the workshop, delete the GPU pool and wait for its instance and ROSA PrivateLink interfaces to be removed. Then remove the additional subnet:
 
 [source,sh,role=execute]
 ----
