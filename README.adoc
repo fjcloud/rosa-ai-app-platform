@@ -5,8 +5,8 @@ Start with an *existing ROSA cluster* from Red Hat Demo Platform. RHDP prepares 
 == Run the workshop
 
 . Order a ROSA workshop environment on https://demo.redhat.com[Red Hat Demo Platform], wait until it is ready, and assign participant access.
-. Open https://fjcloud.github.io/cloud-terminal-pages/[Cloud Terminal], choose *AWS · AI developer platform on ROSA*, and paste the participant's assigned *Showroom URL*.
-. Share the generated workshop link with that participant.
+. Open https://fjcloud.github.io/cloud-terminal-pages/[Cloud Terminal], choose *AWS · AI developer platform on ROSA*, and enter the *workshop ID, assigned email, and workshop password*.
+. The launcher retrieves the assigned Showroom URL. Shared workshop links contain only the guide and workshop ID; each participant signs in separately.
 . Follow Act 0 to log in with `oc`, clone this repository, and run `bash scripts/onboard.sh`.
 
 The platform labs require cluster-admin access, OpenShift 4.22 or later, and AWS GPU quota. Use the existing cluster name in ROSA commands. The workshop adds the GPU pool, platform operators, model serving, and developer tooling; it does not create the base cluster.
