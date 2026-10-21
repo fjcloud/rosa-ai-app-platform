@@ -1,16 +1,18 @@
-= Showroom Repository for the Rosa Workshop
+= AI Developer Platform on ROSA
 
-This repository holds the instructions for the ROSA Workshop.
+Start with an *existing ROSA cluster* from Red Hat Demo Platform. RHDP prepares the cluster, bastion, AWS credentials, Red Hat login, and Marketplace billing.
 
-Act 0 creates the ROSA hosted control plane cluster from an empty AWS account with https://github.com/fjcloud/rosa-quickstart[fjcloud/rosa-quickstart].
+== Run the workshop
 
-Instruction pages are in content/modules/ROOT/pages.
+. Order a ROSA workshop environment on https://demo.redhat.com[Red Hat Demo Platform], wait until it is ready, and assign participant access.
+. Open https://kind-stone-0a3af6003.2.azurestaticapps.net/[Cloud Terminal], choose *AWS · AI developer platform on ROSA*, and paste the participant's assigned *Showroom URL*.
+. Share the generated workshop link with that participant.
+. Follow Act 0 to log in with `oc`, clone this repository, and run `bash scripts/onboard.sh`.
 
-To be intended to be used with Red Hat Demo Platform Showroom but can be built using Antora as well.
+The platform labs require cluster-admin access, OpenShift 4.22 or later, and AWS GPU quota. Use the existing cluster name in ROSA commands. The workshop adds the GPU pool, platform operators, model serving, and developer tooling; it does not create the base cluster.
 
+== Content
 
-== Browser onboarding
+Instruction pages are in `content/modules/ROOT/pages`; Kubernetes manifests are in `deploy`. The content builds with Antora and is published on https://fjcloud.github.io/rosa-ai-app-platform/modules/index.html[GitHub Pages].
 
-Open https://cloud-terminal.azurewebsites.net/[Cloud Terminal], choose *AWS*, then *rosa-ai-app-platform*. Use the workshop id (or catalog URL), email and password assigned by the facilitator. The shell is signed in to the AWS lab and Red Hat. Credentials are available in `~/.workshop-aws.env` and `~/.rhcs.env`; do not print or commit them.
-
-Run `bash scripts/onboard.sh` after cloning this repository to check the tools and identities without creating a cluster. Act 0 explains how to reuse the Red Hat credentials in `rosa-quickstart/.env`. The organizer must link a ROSA HCP Marketplace billing account to the workshop Red Hat organization; OCM role linking alone does not enable billing. Removing an AWS terminal deletes its files. Red Hat credentials and OCM links created by the launcher expire at midnight Europe/Paris; start again to refresh them. Existing OCM links are preserved.
+Provisioning an independent cluster remains available through https://github.com/fjcloud/rosa-quickstart[rosa-quickstart], outside the participant onboarding flow. Do not run it in an assigned RHDP environment that already has a cluster.

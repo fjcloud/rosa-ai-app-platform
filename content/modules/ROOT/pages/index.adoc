@@ -60,8 +60,8 @@ After completing this workshop, you will understand:
 
 | *0 — Get in*
 | —
-| Create the ROSA cluster with `rosa-quickstart`
-| 45 min
+| Connect to the existing RHDP cluster and log in with `oc`
+| 10 min
 
 .4+| *1 — Stand up the agent*
 | 1.1
@@ -113,9 +113,9 @@ After completing this workshop, you will understand:
 
 You will need:
 
-* A web browser and the workshop terminal, with *AWS* selected
-* A Red Hat Cloud Services service account
-* Quota for two 4-vCPU workers in the lab region
+* A web browser and an assigned RHDP ROSA environment with a ready cluster and a WeTTY terminal
+* Cluster-admin access to that existing cluster
+* AWS GPU quota for the machine pool in Lab 1.1
 * This workshop repository (cloned at the end of Act 0) — not the Go app template
 
 Let's get started.
