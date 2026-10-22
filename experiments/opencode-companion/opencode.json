@@ -1,0 +1,46 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "companion",
+  "model": "qwen3/qwen3",
+  "snapshots": false,
+  "providers": {
+    "qwen3": {
+      "name": "Workshop Qwen3.8",
+      "env": [
+        "OPENAI_API_KEY"
+      ],
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "{env:OPENAI_BASE_URL}",
+        "apiKey": "{env:OPENAI_API_KEY}",
+        "headerTimeout": 120000,
+        "chunkTimeout": 120000,
+        "timeout": 600000
+      },
+      "body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "models": {
+        "qwen3": {
+          "name": "Qwen3.8",
+          "modelID": "qwen3",
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "title": "GPU and CPU: who does what?",
+    "source": "Lab 1.1 — GPU Machine Pool",
+    "explain": "This existing ROSA cluster has CPU workers for platform services and a GPU worker for Qwen3.8 inference. The NoSchedule GPU taint reserves scarce GPU capacity for pods with the matching toleration. We inspect it; there is no need to create another pool.",
+    "try": "oc get nodes -l nvidia.com/gpu.present=true",
+    "question": "Which workload needs the NVIDIA GPU in this workshop?",
+    "choices": {"A": "Serving the Fortune Cookie HTML page", "B": "Generating Qwen3.8 model responses", "C": "Reconciling an Argo CD Application"},
+    "hint": "Think about the workload that performs matrix computations when OpenCode answers."
+  },
+  {
+    "title": "Operators keep the platform running",
+    "source": "Labs 1.2–1.3 — Operators and platform instances",
+    "explain": "Operators manage the serving platform and developer tools. The DataScienceCluster declares the desired OpenShift AI components. A Ready condition tells us that a controller reconciled them; it does not yet prove that a developer can call the model.",
+    "try": "oc get datasciencecluster default-dsc",
+    "question": "Why use an operator instead of installing a controller once by hand?",
+    "choices": {"A": "It removes all need for CPU workers", "B": "It replaces Git with the cluster database", "C": "It continuously reconciles the declared configuration"},
+    "hint": "Consider what should happen after a controller pod is restarted."
+  },
+  {
+    "title": "MaaS: a governed model endpoint",
+    "source": "Lab 1.3 and Lab 2.1 — Publish and call Qwen3.8",
+    "explain": "OpenCode sends OpenAI-compatible requests to Qwen3.8 on this cluster. MaaS authenticates its injected API key and applies the subscription's token quota. We test both model discovery and an actual completion, without displaying the key.",
+    "try": "oc get llminferenceservice,maasmodelref -n llm-serving",
+    "question": "What does MaaS add in front of the inference service?",
+    "choices": {"A": "Authenticated model access and token quotas", "B": "A public external model provider", "C": "A container build pipeline"},
+    "hint": "The same model is shared by developers; consider who may call it and how much they may consume."
+  },
+  {
+    "title": "Your browser workspace",
+    "source": "Lab 1.4 and Lab 2.1 — Launch Dev Spaces",
+    "explain": "Dev Spaces runs the editor and development tools in a persistent workspace pod. OpenCode and its MaaS configuration are injected. This companion is a separate experimental project; the existing Fortune Cookie source remains in /projects/go-app-template.",
+    "try": "opencode --version",
+    "question": "Where does this workshop's developer environment run?",
+    "choices": {"A": "In the GitHub Pages frontend", "B": "In a Dev Spaces workspace pod on the cluster", "C": "On a required local Docker installation"},
+    "hint": "Your browser displays the editor, but the terminal commands execute somewhere else."
+  },
+  {
+    "title": "From prompt to a running Go application",
+    "source": "Lab 2.2 — Plan, build, deploy, then ship a change",
+    "explain": "OpenCode follows AGENTS.md to write the Go app and push its source. Tekton builds and pushes an image. The developer's Argo CD watches the deployment configuration in Git. We inspect the app already produced by that workflow. To practise coding later, open /projects/go-app-template and use Build mode there.",
+    "try": "oc get application fortune-cookie -n fortune-cookie-dev",
+    "question": "Which pairing describes the delivery workflow?",
+    "choices": {"A": "Argo CD compiles Go; Tekton serves HTTP", "B": "MaaS builds the image; Dev Spaces reconciles production", "C": "Tekton builds the image; Argo CD reconciles the deployment"},
+    "hint": "Separate making an image from keeping the running application aligned with Git."
+  },
+  {
+    "title": "See the GPU and token usage",
+    "source": "Lab 3.1 — GPU and token metrics",
+    "explain": "DCGM measures GPU utilization and memory. vLLM exports prompt and generated token counters. GPU usage falls when no prompt is running; a zero reading does not imply a broken model. The MaaS subscription limits consumption, while metrics show observed usage.",
+    "try": "oc get maassubscription qwen3-workshop -n models-as-a-service",
+    "question": "Which measurements show this workshop's AI workload?",
+    "choices": {"A": "DCGM GPU metrics and vLLM token counters", "B": "Only requests to the Fortune Cookie route", "C": "Only the number of Git commits"},
+    "hint": "The Go app serves fixed messages; the model does work when OpenCode generates a response."
+  }
+]

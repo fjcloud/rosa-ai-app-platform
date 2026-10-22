@@ -1,0 +1,7 @@
+.progress.json
+.progress.tmp
+.runtime/
+__pycache__/
+.opencode/node_modules/
+.opencode/package.json
+.opencode/bun.lock*
