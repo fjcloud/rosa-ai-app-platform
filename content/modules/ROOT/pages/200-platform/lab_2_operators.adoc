@@ -62,7 +62,7 @@ subscription.operators.coreos.com/leader-worker-set created
 subscription.operators.coreos.com/rhcl-operator created
 ----
 
-The first apply may report that `Task` CRDs are not found yet. That is expected — OpenShift Pipelines has not finished installing. Re-run the same command after the operators are `Succeeded` (start of Lab 1.3); the bundled `git-clone` and `buildah` tasks will then apply.
+Lab 1.3 installs the workshop Tekton tasks after Pipelines is ready. They have their own names so operator upgrades cannot overwrite them.
 
 == Step 2: Start Background Health Checks
 

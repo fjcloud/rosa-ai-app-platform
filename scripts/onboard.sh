@@ -21,7 +21,14 @@ workers=[n for n in nodes if "node-role.kubernetes.io/worker" in n.get("metadata
 if not workers: sys.exit("No worker nodes found. Ask the facilitator to check the existing cluster.")
 if any(not any(c.get("type")=="Ready" and c.get("status")=="True" for c in n.get("status",{}).get("conditions",[])) for n in workers):
     sys.exit("Workers are not all Ready. Wait or ask the facilitator before continuing.")
-print("Existing cluster access verified; workers are Ready.")'
+cpu_workers=[n for n in workers if not n.get("spec",{}).get("unschedulable") and not any(t.get("key")=="nvidia.com/gpu" for t in n.get("spec",{}).get("taints",[]))]
+def millicores(n):
+    v=n.get("status",{}).get("allocatable",{}).get("cpu","0")
+    return int(v[:-1]) if v.endswith("m") else int(float(v)*1000)
+cpu=sum(millicores(n) for n in cpu_workers)
+if cpu < 17500:
+    sys.exit("Insufficient CPU worker capacity: "+str(cpu/1000)+" allocatable cores. Ask the facilitator for five m6a.xlarge CPU workers (or at least 17.5 allocatable CPU cores), plus the GPU pool.")
+print("Existing cluster access verified; workers are Ready; CPU capacity:",cpu/1000,"cores.")'
 oc get clusterversion version -o json | python3 -c '
 import json,re,sys
 version=json.load(sys.stdin).get("status",{}).get("desired",{}).get("version","")

@@ -38,6 +38,8 @@ The `#<template-url>` suffix tells Dev Spaces to clone the template and create a
 
 . You will be redirected to OpenShift SSO. Log in with the same cluster user you used for `oc`.
 
+. If prompted, click *Continue* to trust the facilitator's template repository.
+
 . On the Create Workspace page, confirm that **OpenCode** is selected under *AI Provider*. That selection injects the CLI at start; you do not install it yourself. You will see a progress screen:
 +
 [source,text]
@@ -49,9 +51,9 @@ Running postStart commands...
   ✓ Installing the ephemeral Git client
 ----
 +
-This takes approximately 2-3 minutes on first launch. *Subsequent launches are faster* — the image is cached.
+A cold first launch can take 5–10 minutes while the developer and editor images download. *Subsequent launches are faster* — the image is cached.
 
-. When the workspace is ready, a VS Code-like editor opens in the browser. You will see:
+. When the workspace is ready, a VS Code-like editor opens in the browser. If it shows *Restricted Mode*, click *Manage* and trust this workspace to enable the terminal and development tools. You will see:
 ** A file explorer on the left
 ** A terminal at the bottom
 ** OpenCode available on `PATH` (injected by Dev Spaces, not by the template)
@@ -99,8 +101,7 @@ curl -sS "https://${MAAS_HOST}/v1/models" \
       "owned_by": "llm-serving/qwen3",
       "ready": true,
       "modelDetails": {
-        "displayName": "Qwen3.8",
-        "contextWindow": "262144"
+        "displayName": "Qwen3.8"
       }
     }
   ]

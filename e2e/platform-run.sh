@@ -113,7 +113,7 @@ import sys,json
 d=json.load(sys.stdin)
 for n in d['items']:
     taints = n['spec'].get('taints',[])
-    if any(t.get('key','')=='nvidia.com/gpu' for t in taints):
+    if any(t.get('key','')=='nvidia.com/gpu' and t.get('effect')=='NoSchedule' for t in taints):
         sys.exit(0)
 sys.exit(1)
 \""
@@ -121,6 +121,9 @@ sys.exit(1)
 # NFD label check
 check "GPU node labeled nvidia.com/gpu.present=true (NFD)" \
   "oc get nodes -l 'nvidia.com/gpu.present=true' --no-headers | grep -q '.'"
+
+check "GPU is allocatable after driver and device-plugin validation" \
+  "oc get nodes -l 'nvidia.com/gpu.present=true' -o json | python3 -c \"import json,sys; d=json.load(sys.stdin); assert any(int(n.get('status',{}).get('allocatable',{}).get('nvidia.com/gpu','0'))>0 for n in d['items'])\""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 2 — Cluster Operators (lab_2_operators)
@@ -177,10 +180,10 @@ check "Tekton remote resolvers deployment Available" \
    -o jsonpath='{.status.availableReplicas}' | grep -qE '[1-9]'"
 
 check "buildah Task installed in openshift-pipelines" \
-  "oc get task buildah -n openshift-pipelines"
+  "oc get task workshop-buildah -n openshift-pipelines"
 
 check "git-clone Task installed in openshift-pipelines" \
-  "oc get task git-clone -n openshift-pipelines"
+  "oc get task workshop-git-clone -n openshift-pipelines"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 3 — Platform Instances (lab 1.3 Step 1)
@@ -317,6 +320,17 @@ if [[ -z "${MAAS_KEY}" || "${MAAS_KEY}" != sk-oai-* ]]; then
     -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null | base64 -d || true)
 fi
 
+# Exercise the same discovery call as the real Dev Space; CR readiness alone
+# does not prove that the minted API key can see the model.
+if curl -fsS --max-time 30 "https://${MAAS_HOST}/v1/models" \
+    -H "Authorization: Bearer ${MAAS_KEY}" | \
+    python3 -c 'import json,sys; models=json.load(sys.stdin).get("data",[]); assert any(m.get("owned_by")==sys.argv[1] and m.get("ready") is True for m in models)' "${LLM_NS}/${LLM_IS}"; then
+  ok "MaaS API key discovers the Ready workshop model"
+else
+  warn "FAIL: MaaS API key cannot discover the Ready workshop model"
+  FAILURES=$((FAILURES + 1))
+fi
+
 LLM_RESP=$(curl -sS --max-time 120 "${LLM_URL_MAAS}/chat/completions" \
   -H "Authorization: Bearer ${MAAS_KEY}" \
   -H "Content-Type: application/json" \
@@ -341,7 +355,7 @@ step "Phase 5: Developer Template Repository"
 
 info "Template URL: $TEMPLATE_URL"
 check "Template repo reachable on GitHub" \
-  "curl -sf --max-time 10 '${TEMPLATE_URL}/archive/main.tar.gz' -o /dev/null"
+  "curl -fsSL --max-time 20 '${TEMPLATE_URL}/archive/main.tar.gz' -o /dev/null"
 
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT

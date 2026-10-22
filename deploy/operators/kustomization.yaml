@@ -22,7 +22,6 @@ resources:
   # OpenShift Pipelines (Tekton)
   - pipelines-subscription.yaml
   # Bundled Tekton catalog tasks (git-clone, buildah) for developer pipelines
-  - tekton-tasks.yaml
   # cert-manager (required by LeaderWorkerSet and Connectivity Link TLS)
   - cert-manager-namespace.yaml
   - cert-manager-operatorgroup.yaml

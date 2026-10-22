@@ -6,7 +6,7 @@ Your RHDP environment already contains a ROSA cluster and a bastion. Open its br
 ====
 *Estimated time:* 10 minutes +
 *Persona:* Platform Engineer +
-*Blocking:* Act 1 needs OpenShift 4.22 or later, cluster-admin access, and Ready workers. Lab 1.1 adds the GPU machine pool to this existing cluster.
+*Blocking:* Act 1 needs OpenShift 4.22 or later, cluster-admin access, and at least five Ready `m6a.xlarge` CPU workers (or equivalent capacity), plus the GPU worker added in Lab 1.1. Lab 1.1 adds the GPU machine pool to this existing cluster.
 ====
 
 == Open your environment

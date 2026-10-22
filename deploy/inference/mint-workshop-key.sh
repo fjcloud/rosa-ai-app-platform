@@ -71,6 +71,6 @@ oc annotate secret "${SECRET_NAME}" -n "${SECRET_NS}" \
   controller.devfile.io/mount-on-start=true \
   --overwrite >/dev/null
 
-echo "Stored key prefix ${API_KEY:0:12}... in secret/${SECRET_NAME} (${SECRET_NS})"
+echo "Stored key in secret/${SECRET_NAME} (${SECRET_NS})"
 echo "OPENAI_BASE_URL=${OPENAI_BASE_URL}"
 echo "Smoke: curl -sS ${MAAS_API_URL}/v1/models -H 'Authorization: Bearer \$OPENAI_API_KEY'"

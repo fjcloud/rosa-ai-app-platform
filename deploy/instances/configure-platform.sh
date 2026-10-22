@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
-# Post-apply for deploy/instances: free CPU for Dev Spaces, Authorino TLS,
-# bind MaaS Gateway to this cluster (apps domain +
-# <infrastructureName>-primary-cert-bundle-secret), recycle Kuadrant after
-# Gateway API CRDs exist, then dashboard GPU taints + MaaS UI flags.
+# Bind platform instances to the current cluster after their operators reconcile.
 set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-bash "${SCRIPT_DIR}/configure-lws-cpu.sh"
-bash "${SCRIPT_DIR}/configure-authorino-tls.sh"
+
+wait_resource() {
+  local ns=$1 resource=$2 deadline=$((SECONDS + 600))
+  echo "Waiting for ${resource} in ${ns}..."
+  until oc --request-timeout=15s get "$resource" -n "$ns" >/dev/null 2>&1; do
+    if (( SECONDS >= deadline )); then
+      echo "Timed out waiting for ${resource}. Check pods in ${ns}." >&2
+      exit 1
+    fi
+    sleep 5
+  done
+}
+
 bash "${SCRIPT_DIR}/configure-maas-gateway.sh"
+wait_resource kuadrant-system authorino/authorino
+wait_resource kuadrant-system service/authorino-authorino-authorization
+wait_resource kuadrant-system deployment/authorino
+bash "${SCRIPT_DIR}/configure-authorino-tls.sh"
 bash "${SCRIPT_DIR}/configure-kuadrant-gateway.sh"
 bash "${SCRIPT_DIR}/configure-dashboard.sh"
-echo "Platform instances configured (LWS CPU + Authorino TLS + MaaS Gateway + Kuadrant + dashboard)."
+echo "Platform instances configured (Authorino TLS + MaaS Gateway + Kuadrant + dashboard)."

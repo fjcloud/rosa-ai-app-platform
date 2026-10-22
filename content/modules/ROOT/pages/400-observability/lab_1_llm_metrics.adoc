@@ -27,7 +27,7 @@ Stay in the *Administrator* perspective of the OpenShift Web Console. Every grap
 | OpenShift Web Console → *Observe → Metrics*
 | vLLM PromQL — tokens/sec, time-to-first-token, in-flight requests
 
-| OpenShift AI → *Models as a service*
+| OpenShift AI → *Gen AI studio*
 | Catalog, the `sk-oai-` key, and the 5M tokens / 24h subscription
 |===
 
@@ -114,10 +114,10 @@ If a query returns *No datapoints*, stay in *Administrator* → *Observe → Met
 
 Graphs above are *usage*. The cap is the MaaS subscription — 5 000 000 tokens / 24h. Over quota the gateway returns HTTP 429.
 
-. In the OpenShift Web Console, open the *Application launcher* (the grid) → *Red Hat OpenShift AI*, or go to `https://rh-ai.apps.<apps-domain>/`.
+. In the OpenShift Web Console, open the *Application launcher* (the grid) → *Red Hat OpenShift AI*, or use the dashboard URL printed in Lab 1.3.
 . Log in with the same cluster user as `oc`.
-. Open *Gen AI* / *Models as a service*.
-. Find *Qwen3.8* / `qwen3` in the catalog. The workshop subscription is *5 000 000 tokens / 24h* for `system:authenticated`. Extra keys can be minted here; they do not replace the Dev Spaces Secret.
+. Open *Gen AI studio → AI asset endpoints*. Confirm *Qwen3.8* is *Ready*.
+. Open *Gen AI studio → API keys* and select the *Subscriptions* tab. Open *Qwen3.8 workshop subscription* to see its *5 000 000 tokens / 24h* limit and active `workshop-opencode` key. Extra keys can be minted here; they do not replace the Dev Spaces Secret.
 
 Confirm the same objects from a terminal if you want:
 

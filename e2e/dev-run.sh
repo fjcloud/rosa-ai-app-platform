@@ -26,7 +26,10 @@ LLM_URL="${LLM_URL:-}"
 LLM_MODEL="qwen3"
 LLM_KEY="${LLM_KEY:-}"
 GITPOP_BIN="/tmp/gitpop-e2e"   # still needed for the gitpop helper function
-DEV_POD="e2e-developer"
+DEV_POD="${DEV_POD:-e2e-developer}"
+DEV_CONTAINER="${DEV_CONTAINER:-}"
+VALIDATE_ONLY="${VALIDATE_ONLY:-false}"
+EXPECT_UPDATED_APP="${EXPECT_UPDATED_APP:-false}"
 DEV_IMAGE="quay.io/devfile/universal-developer-image:latest"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
@@ -78,6 +81,12 @@ info "MaaS:    $LLM_URL"
 check_llm_ready || warn "LLMInferenceService not Ready — deploy steps will still run but LLM prompts may fail"
 LLM_KEY="${LLM_KEY:-$(oc get secret ai-provider-openai-api-key -n openshift-operators -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null | base64 -d || true)}"
 
+# The same assertions can validate an application built in a real Dev Space.
+POD_EXEC="oc exec $DEV_POD -n $E2E_NS"
+[[ -z "$DEV_CONTAINER" ]] || POD_EXEC+=" -c $DEV_CONTAINER"
+POD_EXEC+=" --"
+
+if [[ "$VALIDATE_ONLY" != true ]]; then
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 1 — Platform Engineer: verify the pre-initialized template repository
 # ─────────────────────────────────────────────────────────────────────────────
@@ -87,7 +96,7 @@ step "Phase 1: Platform Engineer — Verify template repository"
 # Platform Engineers share TEMPLATE_URL with developers as the DevSpaces launch URL.
 info "Template URL: $TEMPLATE_URL"
 
-if curl -sf --max-time 10 "${TEMPLATE_URL}/archive/main.tar.gz" -o /dev/null 2>/dev/null; then
+if curl -fsSL --max-time 20 "${TEMPLATE_URL}/archive/main.tar.gz" -o /dev/null 2>/dev/null; then
   ok "Template repository reachable at $TEMPLATE_URL"
 else
   warn "Template repository not reachable (network issue?) — continuing with cached clone"
@@ -137,11 +146,9 @@ oc run "$DEV_POD" \
 
 info "Waiting for pod to be Running..."
 oc wait pod/"$DEV_POD" -n "$E2E_NS" \
-  --for=condition=Ready --timeout=120s
+  --for=condition=Ready --timeout=600s
 ok "Pod $DEV_POD is Running"
 
-# Convenience alias
-POD_EXEC="oc exec $DEV_POD -n $E2E_NS --"
 
 # ── Install dependencies inside the pod ───────────────────────────────────────
 step "Phase 2a: Install OpenCode and gitpop inside developer pod"
@@ -157,7 +164,7 @@ $POD_EXEC bash -c "
   chmod +x \$HOME/.local/bin/gitpop
   echo '→ Verifying tools...'
   opencode --version
-  gitpop --version || gitpop help | head -3
+  test -x \"\$HOME/.local/bin/gitpop\"
   echo 'Dependencies OK'
 "
 ok "OpenCode and gitpop installed in pod"
@@ -184,8 +191,8 @@ cfg = {
       'npm': '@ai-sdk/openai-compatible',
       'name': 'Qwen3.8',
       'options': {
-        'baseURL': os.environ.get('LLM_URL') or os.environ.get('OPENAI_BASE_URL') or '',
-        'apiKey': os.environ.get('OPENAI_API_KEY', ''),
+        'baseURL': '{env:OPENAI_BASE_URL}',
+        'apiKey': '{env:OPENAI_API_KEY}',
         'chunkTimeout': 120000,
         'timeout': 600000
       },
@@ -206,13 +213,6 @@ for name in ('opencode.json', 'opencode.jsonc'):
   path = os.path.join(d, name)
   json.dump(cfg, open(path, 'w'), indent=2)
   print('Wrote', path)
-# Project opencode.json wins over XDG; keep it in sync with the 256K/32K pin.
-proj = os.path.expanduser('~/fortune-cookie')
-for name in ('opencode.json', 'opencode.jsonc'):
-  path = os.path.join(proj, name)
-  if os.path.isdir(proj):
-    json.dump(cfg, open(path, 'w'), indent=2)
-    print('Wrote', path)
 PYEOF
 
   ls -la
@@ -230,11 +230,10 @@ $POD_EXEC bash -c "
   cd ~/\$APP_NAME
   export PATH=/home/user/.opencode/bin:/home/user/.local/bin:\$PATH
   opencode --version
-  echo '--- ~/.config/opencode/opencode.json ---'
-  cat ~/.config/opencode/opencode.json
+  echo 'OpenCode configuration loaded (credentials omitted)'
   echo
-  echo '--- OpenCode run (timeout 4 min) ---'
-  timeout 360 opencode run --print-logs << 'PROMPTEOF' || echo 'OpenCode exited (timeout or error) — checking generated files'
+  echo '--- OpenCode generation (timeout 10 min) ---'
+  timeout 600 opencode run --print-logs << 'PROMPTEOF' || echo 'OpenCode exited (timeout or error) — checking generated files'
 Implement the Fortune Cookie application following AGENTS.md strictly.
 
 Generate these files:
@@ -259,7 +258,7 @@ info "Verifying Go build..."
 $POD_EXEC bash -c "
   cd ~/\$APP_NAME
   /usr/local/go/bin/go build -buildvcs=false -o /dev/null . 2>&1
-" && ok "Go build OK" || warn "Go build failed — check code"
+" && ok "Go build OK" || fail "Generated application does not compile"
 
 # ── Run OpenCode: Deploy following AGENTS.md ──────────────────────────────────
 step "Phase 2d: Deploy — OpenCode follows AGENTS.md (git + oc, no Ansible)"
@@ -314,12 +313,14 @@ Print the app route URL and the Argo CD console URL at the end.
 PROMPTEOF
 " 2>&1 | tee /tmp/deploy-opencode.log || warn "OpenCode deploy failed — see /tmp/deploy-opencode.log"
 
+fi
+
 APP_REPO_URL=$($POD_EXEC bash -lc "
   cd ~/\$APP_NAME 2>/dev/null && git remote get-url origin 2>/dev/null || echo ''
 " 2>/dev/null | tr -d '\r\n' || echo "")
 info "App repo: ${APP_REPO_URL:-<not captured>}"
 
-ok "OpenCode deploy session complete"
+info "Validating application repository and deployment"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 3 — Validation
@@ -373,7 +374,9 @@ if [[ -n "$APP_REPO_URL" ]]; then
     "curl -sf '${APP_REPO_URL}/info/refs?service=git-upload-pack' | grep -q git-upload-pack"
 
   check "App repo has main.go committed" \
-    "git ls-remote '${APP_REPO_URL}' HEAD 2>/dev/null | grep -q '.'"
+    "$POD_EXEC git -C /home/user/$APP_NAME cat-file -e HEAD:main.go"
+  check "App branch is pushed to the Git server" \
+    "$POD_EXEC bash -c 'cd /home/user/$APP_NAME && test \"\$(git rev-parse HEAD)\" = \"\$(git ls-remote origin refs/heads/main | cut -f1)\"'"
 else
   warn "FAIL: App repo URL not captured — deploy step may have failed"
   FAILURES=$((FAILURES + 1))
@@ -389,12 +392,8 @@ check "Tekton Pipeline 'build-app' created" \
   "oc get pipeline build-app -n ${APP_NAME}-build"
 
 check "At least one PipelineRun succeeded" \
-  "oc get pipelinerun -n ${APP_NAME}-build --no-headers 2>/dev/null | grep -q Succeeded"
+  "oc get pipelinerun -n ${APP_NAME}-build -o json | python3 -c \"import json,sys; d=json.load(sys.stdin); assert any(any(c.get('type')=='Succeeded' and c.get('status')=='True' for c in r.get('status',{}).get('conditions',[])) for r in d['items'])\""
 
-# The image is pushed directly to internal registry by buildah (no ImageStream)
-check "Image exists in internal registry" \
-  "oc get imagestreamtag ${APP_NAME}:latest -n ${APP_NAME}-build 2>/dev/null || \
-   oc get pipelinerun -n ${APP_NAME}-build --no-headers 2>/dev/null | grep -q Succeeded"
 
 # 3d — Developer-owned Argo CD
 step "Phase 3d: Developer-owned Argo CD"
@@ -420,6 +419,9 @@ for i in $(seq 1 36); do
   sleep 10
 done
 
+check "Argo CD Application Synced and Healthy" \
+  "[[ '$SYNC' == Synced && '$HEALTH' == Healthy ]]"
+
 APP_DEPLOY=$(oc get deploy -n "${APP_NAME}-dev" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
   2>/dev/null | grep -v '^argocd-' | head -1 || true)
 
@@ -440,18 +442,23 @@ else
   ok "Route: https://${APP_ROUTE}"
 
   check "/healthz returns {\"status\":\"ok\"}" \
-    "curl -sk https://${APP_ROUTE}/healthz | grep -q 'ok'"
+    "curl -fsS --max-time 20 https://${APP_ROUTE}/healthz | python3 -c \"import json,sys; assert json.load(sys.stdin)=={'status':'ok'}\""
 
   check "/ returns HTML with a fortune" \
-    "curl -sk https://${APP_ROUTE}/ | grep -iq 'fortune\|cookie\|luck\|wisdom'"
+    "curl -fsS --max-time 20 https://${APP_ROUTE}/ | grep -iq 'fortune\|cookie\|luck\|wisdom'"
+
+  if [[ "$EXPECT_UPDATED_APP" == true ]]; then
+    check "Updated app renders the fortune-cookie emoji" \
+      "curl -fsS --max-time 20 https://${APP_ROUTE}/ | python3 -c \"import html,sys; assert '🥠' in html.unescape(sys.stdin.read())\""
+  fi
 fi
 
 # 3f — LLM smoke test (direct API call, no OpenCode)
 step "Phase 3f: LLM API smoke test"
 
-LLM_RESP=$(oc exec "$DEV_POD" -n "$E2E_NS" -- bash -c "
-  curl -sf '${LLM_URL}/chat/completions' \
-    -H 'Authorization: Bearer ${LLM_KEY}' \
+LLM_RESP=$($POD_EXEC bash -c "
+  curl -fsS --max-time 120 '${LLM_URL}/chat/completions' \
+    -H \"Authorization: Bearer \$OPENAI_API_KEY\" \
     -H 'Content-Type: application/json' \
     -d '{
       \"model\": \"${LLM_MODEL}\",
@@ -468,12 +475,23 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
+# Act 2.3 — verify the live workload follows the template's platform rules.
+step "Phase 3g: Resource, probe, security and TLS audit"
+check "Application resource requests and limits match the platform rules" \
+  "oc get deployment '$APP_DEPLOY' -n '${APP_NAME}-dev' -o json | python3 -c \"import json,sys; c=json.load(sys.stdin)['spec']['template']['spec']['containers'][0]; assert c['resources']['requests']=={'cpu':'50m','memory':'64Mi'}; assert c['resources']['limits']=={'cpu':'200m','memory':'128Mi'}\""
+check "Application has working health probes and a restricted security context" \
+  "oc get deployment '$APP_DEPLOY' -n '${APP_NAME}-dev' -o json | python3 -c \"import json,sys; s=json.load(sys.stdin)['spec']['template']['spec']; c=s['containers'][0]; assert all(c[p]['httpGet']['path']=='/healthz' and c[p]['httpGet']['port']==8080 for p in ['readinessProbe','livenessProbe']); assert s['securityContext']['runAsNonRoot']; assert s['securityContext']['seccompProfile']['type']=='RuntimeDefault'; assert c['securityContext']['allowPrivilegeEscalation']==False; assert 'ALL' in c['securityContext']['capabilities']['drop']\""
+check "Application Route uses edge TLS and redirects HTTP" \
+  "oc get route '$APP_DEPLOY' -n '${APP_NAME}-dev' -o json | python3 -c \"import json,sys; t=json.load(sys.stdin)['spec']['tls']; assert t['termination']=='edge' and t['insecureEdgeTerminationPolicy']=='Redirect'\""
+check "Application pod pulled a built image digest" \
+  "oc get pods -n '${APP_NAME}-dev' -l app.kubernetes.io/name='$APP_DEPLOY' -o json | python3 -c \"import json,sys; d=json.load(sys.stdin); assert any(c.get('ready') and '@sha256:' in c.get('imageID','') for p in d['items'] for c in p['status'].get('containerStatuses',[]))\""
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 step "Summary"
 
 echo ""
 echo -e "  Template repo : ${CYAN}${TEMPLATE_URL}${NC}"
-echo -e "  App repo      : ${CYAN}${GIT_SERVER}/${APP_NAME}${NC}"
+echo -e "  App repo      : ${CYAN}${APP_REPO_URL:-<not captured>}${NC}"
 echo -e "  App route     : ${CYAN}https://${APP_ROUTE:-<not found>}${NC}"
 echo -e "  Argo CD (dev) : ${CYAN}https://$(oc get route argocd-server -n ${APP_NAME}-dev -o jsonpath='{.spec.host}' 2>/dev/null || echo '<not deployed>')${NC}"
 echo ""
