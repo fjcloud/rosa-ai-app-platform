@@ -1,102 +1,27 @@
-= Conclusion & What's Next
+= Conclusion & Next Steps
 
-*Congratulations!* 🥠
+You played both roles in the workshop. As the platform engineer, you added one L40S worker, served Qwen3.8 through OpenShift AI and Models-as-a-Service, and prepared Dev Spaces with a project runbook. As the developer, you used OpenCode to generate Fortune Cookie, built it with Tekton, and deployed and updated it through your own Argo CD instance.
 
-You finished the Monday story: an in-cluster coding agent on ROSA, no public LLM. In a half day you published Qwen3.8 as a service, shipped Fortune Cookie from a prompt, and looked at the GPU and token bill.
+Qwen3.8 was the coding service. The Fortune Cookie application serves local messages and does not call the model at runtime. Coding inference stayed on ROSA; the workshop template uses an external ephemeral Git service for source delivery.
 
-== What You Built
+== What the audit showed
 
-=== As a Platform Engineer
+`AGENTS.md` helped the agent follow platform conventions. You then checked resource limits, probes, security context and Route TLS against live resources. Model instructions complement CI, admission policies and review; they do not replace them.
 
-[cols="1,2", options="header"]
-|===
-| Component | Technology
+== Costs and cleanup
 
-| GPU infrastructure
-| ROSA managed machine pool (fixed 1 node), NVIDIA L40S
+You inspected GPU activity, vLLM token metrics and the MaaS subscription. The token quota limits consumption; VM and disk charges continue while those resources exist, even when the model is idle. Follow Lab 3.1 for facilitator cleanup after all participants finish. Never delete the shared RHDP cluster.
 
-| LLM as a Service
-| OpenShift AI 3.5 dashboard + Models-as-a-Service + `LLMInferenceService` + Red Hat vLLM + Qwen3.8-27B-INT4
+== Next steps
 
-| AI-native governance
-| `AGENTS.md` — machine-readable platform conventions enforced by OpenCode
+* Move source to an internal Git service if required by your organization.
+* Add automated validation and Tekton triggers for each Git push.
+* Replace mutable `latest` image tags with immutable image digests.
+* Design scoped developer permissions and per-team model access before sharing the platform.
+* Measure concurrency and latency before adding replicas or an autoscaler.
 
-| Developer enablement
-| Go app template + OpenShift Dev Spaces pre-configured with OpenCode
+== Resources
 
-| GitOps delivery backbone
-| OpenShift GitOps (Argo CD) + OpenShift Pipelines (Tekton)
-
-| LLM observability
-| NVIDIA DCGM dashboard + OpenShift AI model metrics (Prometheus)
-|===
-
-=== As a Developer
-
-[cols="1,2", options="header"]
-|===
-| Milestone | Details
-
-| Personal Git repo
-| Created in seconds on ephemeral Git — no GitHub account, no SSH key setup
-
-| Fortune Cookie app
-| Generated live by OpenCode + Qwen3.8 — `main.go`, `go.mod`, `Dockerfile`, all from a single prompt
-
-| Compile gate
-| `CGO_ENABLED=0 go build -buildvcs=false` verified code before pushing — zero broken builds
-
-| Container image
-| Built by OpenShift Pipelines (Tekton): `git-clone + buildah` — no local Docker required
-
-| GitOps deployment
-| Developer-owned Argo CD instance synced `deploy/base/` → app live at a public HTTPS route
-
-| Compliance audit
-| OpenCode reviewed and fixed resource limits, probes, security context, TLS — all per `AGENTS.md`
-|===
-
-== The Key Insights
-
-*1. ROSA makes GPU infrastructure a Platform Engineer concern, not a developer concern.*
-A single `rosa create machine-pool` command provisions NVIDIA hardware on AWS. Developers never interact with EC2 or node selectors.
-
-*2. OpenShift AI makes LLM serving a catalog item, not a project.*
-`oc apply -k` deploying an `LLMInferenceService` plus MaaS CRs gives every team a governed OpenAI-compatible API — keys, quotas, and the same interface they already know.
-
-*3. AGENTS.md shifts governance from documentation to code.*
-Platform conventions encoded in a Markdown file are read and enforced by the LLM at generation time. The developer gets a compliant app without opening a checklist.
-
-*4. The same LLM powers the developer inner loop.*
-OpenCode uses Qwen3.8 to write the Fortune Cookie app. Qwen3.8 is a *platform* capability.
-
-*5. Observability closes the loop.*
-GPU utilization, token throughput, and TTFT are visible in the same console as all other cluster metrics. Token quotas on the MaaS gateway make consumption attributable.
-
-== What We Did Not Cover (But You Can Explore)
-
-* *LLM scale-out with llm-d:* This workshop pins one vLLM replica. OpenShift AI's path is *Distributed Inference with llm-d* on `LLMInferenceService`: vLLM engines, an inference gateway and scheduler, KV-cache-aware routing, and LeaderWorkerSet when the model spans GPUs or nodes. Replica count is still moved by *KEDA* (it owns the HPA). The scaling *signal* is the workload variant autoscaler (WVA) — KV cache (`vllm:kv_cache_usage_perc`) and queue (`vllm:num_requests_waiting`), not CPU or memory. WVA is Developer Preview in OpenShift AI 3.5.
-* *Multi-environment GitOps:* Add `deploy/overlays/stage/` and `deploy/overlays/prod/` with Kustomize overlays; use separate Argo CD `Application` objects per environment
-* *Webhook-triggered pipelines:* Add an `EventListener` + `TriggerBinding` to Tekton so `git push` triggers builds automatically
-* *Application autoscaling:* Add an HPA to the Fortune Cookie `Deployment` to scale based on HTTP requests
-* *Model fine-tuning:* OpenShift AI Data Science Projects support fine-tuning workflows on proprietary data using distributed training
-* *ROSA HCP (Hosted Control Planes):* This workshop already runs on ROSA HCP. The pattern isolates the control plane from worker nodes for stronger multi-tenancy and faster cluster provisioning.
-* *OpenShift Service Mesh:* Do not install OSSM 3 by hand on OpenShift 4.22 — this cluster uses the Gateway API (`openshift-default`). Istio remains optional for app-to-app mTLS later.
-
-== Get Started with ROSA
-
-* https://console.redhat.com/openshift/create/rosa/getstarted[Start a ROSA cluster in your AWS account, window=_blank]
-* https://www.redhat.com/en/technologies/cloud-computing/openshift/aws/learn[ROSA Learning Hub, window=_blank]
-* https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed[OpenShift AI Documentation, window=_blank]
-* https://github.com/fjcloud/opencode-devspace[opencode-devspace reference architecture (GitHub), window=_blank]
-* https://opencode.ai[OpenCode CLI, window=_blank]
-
-== Talk to Us
-
-If you have questions or want to explore ROSA for your organization, our team is here to help. Use the blue hat icon in the https://console.redhat.com[Red Hat Hybrid Cloud Console, window=_blank] to start a conversation.
-
----
-
-*Thank you for attending the AI-Powered Developer Platform on ROSA workshop!*
-
-_May your deployments be swift, your models be accurate, and your fortunes be wise._ 🥠
+* https://console.redhat.com/openshift/create/rosa/getstarted[Get started with ROSA, window=_blank]
+* https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed[OpenShift AI documentation, window=_blank]
+* https://opencode.ai/docs/[OpenCode documentation, window=_blank]

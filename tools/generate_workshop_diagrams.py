@@ -288,7 +288,7 @@ def architecture() -> None:
     a2 = b.columns(3, 414, 598, left=56, right=1224, gap=36)
     labels2 = [
         ("Dev Spaces", "browser IDE"),
-        ("OpenCode + AGENTS.md", "~45-line runbook"),
+        ("OpenCode + AGENTS.md", "project runbook"),
         ("Fortune Cookie app", "Go, Tekton, Argo CD"),
     ]
     for box, (t, s) in zip(a2, labels2):
@@ -332,14 +332,14 @@ def model_serving() -> None:
     b.caption_stack(840, 188, ["TLS", "to GPU"])
     b.line((640, 340), (640, 400), fill=GRAY, width=2)
 
-    b.footer("One front door. One API key. GitOps owns the serving stack.")
+    b.footer("One front door. API keys and quotas. Manifests applied by the platform team.")
     b.save(OUT_DIR / "model-serving-architecture.png")
 
 
 def cicd() -> None:
     b = Board(1280, 680)
     b.frame()
-    b.title("Prompt to production")
+    b.title("Prompt to deployment")
 
     steps = [
         ("1", "Prompt OpenCode", "reads AGENTS.md"),
@@ -446,7 +446,7 @@ def the_bill() -> None:
     b.text((ax0 + 10, ay0 + 52), "sessions", b.display(20), fill=WHITE)
     b.text((ax0 + 10, ay0 + 88), "this afternoon", b.display(18), fill=WHITE)
 
-    b.footer("Token quota is how the platform team caps cost.")
+    b.footer("Token quotas limit usage. Provisioned workers incur charges even when idle.")
     b.save(OUT_DIR / "the-bill-observability.png")
 
 

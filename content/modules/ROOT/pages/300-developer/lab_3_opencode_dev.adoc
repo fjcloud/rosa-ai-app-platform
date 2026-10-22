@@ -1,6 +1,6 @@
-= Lab 2.2 — Prompt to Production
+= Lab 2.2 — Prompt to Deployment
 
-You have a Dev Space, an in-cluster LLM, and a short `AGENTS.md`. Three OpenCode sessions take you from an empty tree to a live Fortune Cookie app, then through a real change — still no Ansible, no local Docker, no public LLM.
+You have a Dev Space, an in-cluster LLM, and a short `AGENTS.md`. Three steps in OpenCode take you from an application template to a live Fortune Cookie app, then through a real change — still no Ansible, no local Docker, no public LLM.
 
 [NOTE]
 ====
@@ -11,12 +11,12 @@ You have a Dev Space, an in-cluster LLM, and a short `AGENTS.md`. Three OpenCode
 
 [TIP]
 ====
-OpenCode reads `AGENTS.md` before every prompt. You do not repeat platform rules — describe what you want. The LLM knows the Dockerfile template and the git, ephemeral Git, and `oc` deploy phases.
+OpenCode includes `AGENTS.md` in its project context. Describe the application and review the proposed plan. The runbook supplies the Dockerfile and the Git, Tekton and Argo CD steps; the checkpoints verify the result.
 ====
 
 == Step 1: Open the Project and Launch OpenCode
 
-Dev Spaces already cloned the template — it is in `${PROJECT_SOURCE}`. The template sets `APP_NAME=fortune-cookie`.
+Dev Spaces already cloned the template — it is in `$\{PROJECT_SOURCE}`. The template sets `APP_NAME=fortune-cookie`.
 
 [source,sh,role=execute]
 ----
@@ -25,7 +25,7 @@ echo "APP_NAME=$APP_NAME"
 ls
 ----
 
-.Expected
+.Expected key entries
 [source,console]
 ----
 APP_NAME=fortune-cookie
@@ -45,13 +45,13 @@ opencode
 | GitOps | Point `image:` at the build, apply `gitops/base`, create the Argo CD Application | 2–3 min
 |===
 
-image::cicd-gitops.png[Prompt to production, align="center"]
+image::cicd-gitops.png[Prompt to deployment, align="center"]
 
 ---
 
-== Session 1: Plan
+== Step 2: Plan
 
-Press kbd:[Tab] until the TUI shows *plan*, then paste. Stay in this session — do not start a new one (`Ctrl+N`).
+Press kbd:[Tab] until the TUI shows *plan*, then paste. Keep this session open for the build step.
 
 [source,text,role=execute]
 ----
@@ -62,16 +62,17 @@ Review the plan. Adjust if needed. The plan is the context for the next prompt.
 
 ---
 
-== Session 2: Build and Deploy
+== Step 3: Build and Deploy
 
 Press kbd:[Tab] to *build* in the *same* session.
 
 [source,text,role=execute]
 ----
-Implement the plan.
+Implement the plan and deploy it using AGENTS.md.
+Wait for Tekton to succeed and Argo CD to be Synced / Healthy, then print the app and Argo CD URLs.
 ----
 
-OpenCode writes the files, compiles, then ships from `AGENTS.md`. When it is done it should print the app route and the Argo CD console URL. The Argo CD `Application` must live in `${APP_NAME}-dev` (never `default`).
+OpenCode writes the files, compiles, then ships from `AGENTS.md`. When it is done it should print the app route and the Argo CD console URL. The Argo CD `Application` must live in `$\{APP_NAME}-dev` (never `default`).
 
 === Checkpoint — the app is live
 
@@ -92,7 +93,7 @@ echo "================================================"
 oc get application $APP_NAME -n ${APP_NAME}-dev \
   -o jsonpath='{.status.sync.status} / {.status.health.status}' && echo
 
-curl -sk https://${APP_ROUTE}/healthz
+curl -fsS https://${APP_ROUTE}/healthz
 ----
 
 Expected:
@@ -119,24 +120,32 @@ The model wrote the code; the running app serves a slice of strings.
 
 ---
 
-== Session 3: Ship a change
+== Step 4: Ship a change
 
-Close the GitOps loop: change the app, push, watch Tekton rebuild, roll the deployment. Still no hand-written `kubectl apply` for the app.
+Close the GitOps loop: change the app, push, start a new Tekton build, then restart the Deployment to pull the updated image. In this workshop, builds are started explicitly; a Git push alone does not trigger Tekton.
 
-Start a new OpenCode session in `${PROJECT_SOURCE}`. Press kbd:[Tab] to *build*:
+Start a new OpenCode session in `$\{PROJECT_SOURCE}`. Press kbd:[Tab] to *build*:
 
 [source,text,role=execute]
 ----
-Add 10 more fortunes and show the message in a styled card with 🥠. Then ship it.
+Add 10 more fortunes and show the message in a styled card with 🥠. Commit and push, rebuild with Tekton, and deploy using AGENTS.md.
+Wait for the matching Git revision in Argo CD to be Synced / Healthy, then print the app URL.
 ----
 
 Wait for OpenCode to confirm the PipelineRun succeeded.
 
 You can watch the build in the OpenShift console: *Pipelines → PipelineRuns* in the `fortune-cookie-build` namespace.
 
+Argo CD polls Git. `Synced / Healthy` can still describe the previous revision just after a push. Refresh it and wait for your commit:
+
 [source,sh,role=execute]
 ----
 APP_NAME="${APP_NAME:-fortune-cookie}"
+
+oc annotate application $APP_NAME -n ${APP_NAME}-dev \
+  argocd.argoproj.io/refresh=hard --overwrite
+oc wait application/$APP_NAME -n ${APP_NAME}-dev \
+  --for=jsonpath='{.status.sync.revision}'="$(git rev-parse HEAD)" --timeout=180s
 
 oc get application $APP_NAME -n ${APP_NAME}-dev \
   -o jsonpath='{.status.sync.status} / {.status.health.status}' && echo
@@ -145,7 +154,7 @@ oc rollout status deployment/$APP_NAME -n ${APP_NAME}-dev --timeout=120s
 
 ROUTE=$(oc get route $APP_NAME -n ${APP_NAME}-dev -o jsonpath='{.spec.host}')
 echo "https://${ROUTE}"
-curl -sk https://${ROUTE}/healthz
+curl -fsS https://${ROUTE}/healthz
 ----
 
 .Expected
@@ -167,7 +176,7 @@ Open the URL — you should see the cookie emoji 🥠 and the new fortunes.
 | `git-clone` + `buildah`, image to the internal registry
 
 | `oc rollout restart`
-| Pods pull `${APP_NAME}:latest`
+| Pods pull `$\{APP_NAME}:latest`
 |===
 
 ➡️ Move on to *Lab 2.3: Audit with OpenCode*.

@@ -2,7 +2,7 @@
 
 Welcome to the *AI-Powered Developer Platform on ROSA* workshop.
 
-The story for today is a Monday at a company that will not send source code to a public LLM. This morning the platform team publishes Qwen3.8. This afternoon a developer ships an app with it. You wear both hats, then you look at the GPU and token bill.
+The story for today is a Monday at a company that wants its coding model to run inside its OpenShift cluster. This morning the platform team publishes Qwen3.8. This afternoon a developer ships an app with it. You wear both hats, then you look at the GPU and token bill.
 
 
 == Who This Workshop Is For
@@ -28,7 +28,7 @@ The LLM writes the app. Qwen3.8 is a *platform* capability.
 * A fixed-size *GPU machine pool* on ROSA — one NVIDIA L40S, no manual EC2
 * *OpenShift AI* Models-as-a-Service serving *Qwen3.8-27B* (Red Hat AI INT4) behind one HTTPS front door and one `sk-oai-` key
 * *OpenShift Dev Spaces* pointed at that gateway
-* *AGENTS.md* — the only runbook OpenCode reads
+* *AGENTS.md* — project instructions for OpenCode
 * *OpenShift GitOps* (Argo CD) and *OpenShift Pipelines* (Tekton)
 
 === Act 2 — Developer
@@ -39,7 +39,7 @@ The LLM writes the app. Qwen3.8 is a *platform* capability.
 
 === Act 3 — The bill
 * NVIDIA DCGM GPU metrics and vLLM token metrics in the same console
-* MaaS subscription quota — how the platform team caps cost
+* MaaS subscription quota — how the platform team limits token consumption
 
 == Learning Outcomes
 
@@ -47,10 +47,18 @@ After completing this workshop, you will understand:
 
 * How ROSA managed machine pools give you GPU capacity without EC2 complexity
 * How OpenShift AI (`LLMInferenceService` + Models-as-a-Service) is a governed OpenAI-compatible API on your cluster
-* How `AGENTS.md` shifts platform governance from documentation to something the model enforces
+* How `AGENTS.md` gives the coding agent platform conventions, backed by deployment checks
 * How Dev Spaces + OpenCode is an AI-augmented inner loop with no laptop install
 * How Tekton and Argo CD form a GitOps path from a single repository
-* How GPU watts and token windows are the real cost of an in-cluster coding agent
+* How GPU utilization and token counters help assess capacity while infrastructure is billed for provisioned time
+
+== How to follow the labs
+
+The morning/afternoon story represents two roles; you play both. Allow roughly half a day, including provisioning and image downloads. Timings are estimates.
+
+Run Acts 0 and 1 in the *bastion terminal* from Cloud Terminal. In Act 2, switch to the *Dev Spaces terminal* in the browser IDE. Lab 3.1 names the terminal to use for each task. Paste shell blocks into a terminal and prompt blocks into OpenCode. Use `/exit` to leave OpenCode, or open another terminal for checkpoint commands.
+
+The platform uses cluster-wide resources and the app uses fixed namespace names. Use one assigned cluster per participant. If several people share a cluster, the facilitator runs Act 1 once and assigns isolated app names, manifests and permissions before Act 2.
 
 == Workshop Structure
 
@@ -63,7 +71,7 @@ After completing this workshop, you will understand:
 | Connect to the existing RHDP cluster and log in with `oc`
 | 10 min
 
-.4+| *1 — Stand up the agent*
+.4+| *1 — Build the platform*
 | 1.1
 | Deploy a GPU Machine Pool
 | 15 min (5 active)
@@ -86,7 +94,7 @@ After completing this workshop, you will understand:
 | 10 min
 
 | 2.2
-| Prompt to Production (generate, ship, change)
+| Prompt to Deployment (generate, ship, change)
 | 35 min
 
 | 2.3
@@ -106,7 +114,7 @@ After completing this workshop, you will understand:
 
 [TIP]
 ====
-*Fire-and-forget timing:* GPU node, operators, and model load are triggered early and run in the background. By the time Sam opens Dev Spaces, Qwen3.8 is Ready.
+*Readiness gates:* GPU provisioning, operator installs and model loading take time. Continue when the guide says work can run in the background, and complete each readiness check before starting the next dependent step.
 ====
 
 == Prerequisites
@@ -115,7 +123,8 @@ You will need:
 
 * A web browser and an assigned RHDP ROSA environment with a ready cluster and a WeTTY terminal
 * Cluster-admin access to that existing cluster
-* AWS GPU quota for the machine pool in Lab 1.1
+* ROSA and AWS permissions, regional quota and capacity for one On-Demand `g6e.xlarge` GPU worker
+* At least five `m6a.xlarge` CPU workers, or equivalent allocatable capacity, in addition to the GPU
 * This workshop repository (cloned at the end of Act 0) — not the Go app template
 
 Let's get started.

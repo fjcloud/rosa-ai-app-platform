@@ -1,6 +1,6 @@
 = AI Developer Platform on ROSA
 
-Start with an *existing ROSA cluster* from Red Hat Demo Platform. RHDP prepares the cluster, bastion, AWS credentials, Red Hat login, and Marketplace billing.
+Cloud SSAs use this guide to prepare access and lead participants through the platform and developer roles. Start with an *existing ROSA cluster* from Red Hat Demo Platform. RHDP prepares the cluster, bastion, AWS credentials, Red Hat login, and Marketplace billing.
 
 == Run the workshop
 
@@ -20,6 +20,20 @@ rosa edit machinepool workers --cluster "$CLUSTER_ID" --replicas 5
 ----
 
 Wait for the new workers to become Ready, then run the onboarding check. Keep the GPU pool at one replica.
+
+== Architecture
+
+[source,text]
+----
+Dev Spaces / OpenCode ──> MaaS gateway ──> Qwen3.8 / vLLM / one L40S
+          │ generates
+          ▼
+     Fortune Cookie ──> ephemeral Git ──> Tekton ──> Argo CD ──> HTTPS app
+----
+
+The model helps write the application; Fortune Cookie does not call it at runtime. Inference stays on ROSA. Source is pushed to the template’s external ephemeral Git service. On-Demand is the default; Spot launches were denied by the tested RHDP account’s organization policy.
+
+Use one assigned cluster per participant. On a shared cluster, the facilitator prepares the platform once and isolates each app’s namespaces and access.
 
 == Content
 
