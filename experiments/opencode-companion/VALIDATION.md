@@ -1,37 +1,47 @@
-# Live validation — 2026-10-22
+# Validation — Cloud Terminal / RHDP bastion
 
-Tested on the existing ROSA HCP 4.22.18 lab (`rosa-lxd8l`), in its actual Dev
-Space, using **OpenCode 2.1.2** and the deployed **Qwen3.8** MaaS endpoint.
+The current experiment is the **whole workshop companion on the bastion**.
+The earlier six-checkpoint Dev Spaces-only prototype did not match the intended
+entry point and has been replaced.
 
-| Check | Result |
-|-------|--------|
-| Binary | Official `@opencode/cli-linux-x64@2.1.2` package verified against its npm SHA-512 integrity. |
-| Configuration | Native V2 provider configuration, `companion` primary agent and `rosa-companion` skill loaded successfully. |
-| First contact | Native interactive experience question rendered; French conversation followed the learner's language. |
-| Wrong answer | Choosing A in the GPU quiz produced a hint and kept the saved step at 1. |
-| Correct answer | Choosing B passed the GPU quiz and waited at the pacing question. |
-| Explain more | Produced another explanation and returned to the same pacing choice. |
-| Pause | Ended the turn with no pending form and preserved the checkpoint. |
-| Resume | A new OpenCode conversation resumed at the saved pacing choice rather than restarting the quiz. |
-| Six checkpoints | GPU/taint, OpenShift AI/Dev Spaces readiness, MaaS discovery and real inference, running workspace, successful builds/Synced Healthy app, GPU/token metrics all verified. |
-| Completion | All six quizzes passed; each transition followed an explicit Next step choice; Finish workshop produced a recap. |
-| Browser | Actual OpenCode 2 TUI and its native question visible in the Dev Spaces browser terminal. Chromium used `--use-mock-keychain`. |
-| Unit checks | Seven tests passed: evidence gate, quiz gate, wrong answer, explicit next/resume, failed recheck, unexpected-error redaction, durable completion. |
-| Isolation | Existing injected OpenCode remains 1.18.14; the experiment binary reports `opencode v2.1.2`. User progress was left fresh; automated course progress used a separate file. |
+Environment: existing ROSA HCP 4.22.18 lab (`rosa-lxd8l`), OpenCode 2.1.2 on
+`bastion.lxd8l`, and the already deployed Qwen3.8 MaaS endpoint.
 
-The live test drove real native question forms through the OpenCode 2 API. Quiz
-answers were submitted as learner inputs; cluster evidence came from commands
-executed by the companion in the workspace. The browser check separately
-verified the terminal UI, including the initial selectable question.
+## Checks
 
-One live MaaS discovery call returned an empty list despite the model being
-available for inference. The companion correctly stopped, explained the failed
-checkpoint, and offered **Retry the check**. Retrying listed the model and
-returned `COMPANION_OK` from a real completion, after which the course continued.
-The cause of that intermittent discovery result is not resolved by this
-prototype.
+- **Cloud Terminal browser check passed:** opened the published launcher,
+  retrieved the assignment through the normal workshop-ID flow, typed
+  `workshop` in its real WeTTY iframe, and verified OpenCode 2's selectable
+  learner question inside that terminal. The final Mini view hides raw shell
+  output while retaining explanations and interactive questions. Chromium used
+  `--use-mock-keychain`.
 
-This was an exploration of the existing deployment, not a fresh installation or
-a new application build. No GPU pools, operators, application source, delivery
-pipelines or billing settings were changed. The stopped Dev Space was started
-for the experiment. ARO and multi-participant use were not tested.
+- The full native OpenCode 2 dialogue passed all ten checkpoints on the bastion:
+  Act 0, GPU, operators, serving, developer handoff, workspace, delivery, audit,
+  metrics and conclusion. Every checkpoint had a successful live check, a quiz
+  and an explicit learner choice before advancement.
+- A deliberately wrong Act 0 answer produced a hint and stayed on Act 0.
+  Pause preserved it; a new conversation resumed the saved pacing choice.
+- The Dev Space was idle-stopped. The companion blocked at Lab 2.1 until that
+  existing workspace was restarted, then continued. The companion itself
+  remained on the bastion throughout.
+
+- Verified the official pinned Linux x64 binary's SHA-512 integrity.
+- Installed `workshop` in the bastion login PATH. It starts at Act 0, not in a
+  developer workspace. The model key is loaded from the existing Secret into
+  process memory; no key or new login was requested.
+- Fixed an actual bastion issue: private OpenCode XDG directories hid ROSA's
+  existing OCM login. Cluster commands now retain the host's configuration paths.
+  Verified normal ROSA login and successful onboarding without reauthentication.
+- Eleven unit tests passed, including wrong answers, explicit progression,
+  durable completion, existing-resource reuse, unsupported manual actions,
+  stopping on a failed apply, and preserving host authentication locations.
+
+The lab is already deployed. Inspecting its resources exercises the teaching
+and verification path; it does not constitute a fresh install. Platform action
+failure/no-op behavior is unit tested; no platform reinstallation, billing
+change, new GPU pool, or application rebuild was performed.
+
+Bootstrap remains a limitation for a new workshop: the companion needs a model
+before Lab 1.3. This test reuses the existing lab's model. ARO and multi-user
+operation have not been tested.

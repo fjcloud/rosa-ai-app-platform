@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
+export PATH="$HOME/.local/bin:$PATH"
+if [[ -z "${WORKSHOP_REPO:-}" ]]; then
+  if [[ -f ../../content/modules/ROOT/nav.adoc ]]; then
+    export WORKSHOP_REPO="$(cd ../.. && pwd)"
+  else
+    export WORKSHOP_REPO="$HOME/rosa-ai-app-platform"
+  fi
+fi
 mkdir -p .runtime
+export WORKSHOP_HOST_XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-}"
+export WORKSHOP_HOST_XDG_DATA_HOME="${XDG_DATA_HOME:-}"
+export WORKSHOP_HOST_XDG_CACHE_HOME="${XDG_CACHE_HOME:-}"
+export WORKSHOP_HOST_XDG_STATE_HOME="${XDG_STATE_HOME:-}"
 export XDG_CONFIG_HOME="$PWD/.runtime/config"
 export XDG_DATA_HOME="$PWD/.runtime/data"
 export XDG_CACHE_HOME="$PWD/.runtime/cache"
 export XDG_STATE_HOME="$PWD/.runtime/state"
 export OPENCODE_DB="$PWD/.runtime/opencode.db"
-if [[ $# == 0 ]]; then
-  set -- --prompt "Start or resume the ROSA workshop companion. Load rosa-companion and guide me one step at a time."
-fi
-if [[ "${1:-}" == serve ]]; then
-  exec "$HOME/.local/share/rosa-companion/opencode2" "$@"
-fi
-exec "$HOME/.local/share/rosa-companion/opencode2" --standalone "$@"
+exec python3 launcher.py "$@"

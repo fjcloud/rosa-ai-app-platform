@@ -1,56 +1,144 @@
 [
   {
-    "title": "GPU and CPU: who does what?",
-    "source": "Lab 1.1 — GPU Machine Pool",
-    "explain": "This existing ROSA cluster has CPU workers for platform services and a GPU worker for Qwen3.8 inference. The NoSchedule GPU taint reserves scarce GPU capacity for pods with the matching toleration. We inspect it; there is no need to create another pool.",
-    "try": "oc get nodes -l nvidia.com/gpu.present=true",
-    "question": "Which workload needs the NVIDIA GPU in this workshop?",
-    "choices": {"A": "Serving the Fortune Cookie HTML page", "B": "Generating Qwen3.8 model responses", "C": "Reconciling an Argo CD Application"},
-    "hint": "Think about the workload that performs matrix computations when OpenCode answers."
+    "title": "Act 0 — Get in from Cloud Terminal",
+    "source": "Act 0",
+    "source_file": "100-setup/lab_1_access_rosa.adoc",
+    "explain": "You are on the RHDP bastion through the Cloud Terminal browser terminal. This is the starting point for the whole workshop. We check the assigned AWS account, the existing ROSA cluster, administrator access, and CPU worker capacity before the GPU and platform labs. This deployed lab already has its model; do not provision a second cluster or change billing.",
+    "try_command": "bash scripts/onboard.sh",
+    "question": "What should you use as the starting environment?",
+    "choices": {
+      "A": "Create another ROSA cluster",
+      "B": "Use the existing assigned RHDP cluster and bastion",
+      "C": "Switch to a personal Red Hat organization"
+    },
+    "hint": "The facilitator has already assigned the environment and its billing setup."
   },
   {
-    "title": "Operators keep the platform running",
+    "title": "Lab 1.1 — GPU machine pool",
+    "source": "Lab 1.1 — GPU Machine Pool",
+    "explain": "This existing ROSA cluster has CPU workers for platform services and a GPU worker for Qwen3.8 inference. The NoSchedule GPU taint reserves scarce GPU capacity for pods with the matching toleration. We inspect it; there is no need to create another pool.",
+    "question": "Which workload needs the NVIDIA GPU in this workshop?",
+    "choices": {
+      "A": "Serving the Fortune Cookie HTML page",
+      "B": "Generating Qwen3.8 model responses",
+      "C": "Reconciling an Argo CD Application"
+    },
+    "hint": "Think about the workload that performs matrix computations when OpenCode answers.",
+    "source_file": "200-platform/lab_1_gpu_machinepool.adoc",
+    "try_command": "oc get nodes -l nvidia.com/gpu.present=true"
+  },
+  {
+    "title": "Lab 1.2 — Install platform operators",
     "source": "Labs 1.2–1.3 — Operators and platform instances",
     "explain": "Operators manage the serving platform and developer tools. The DataScienceCluster declares the desired OpenShift AI components. A Ready condition tells us that a controller reconciled them; it does not yet prove that a developer can call the model.",
     "try": "oc get datasciencecluster default-dsc",
     "question": "Why use an operator instead of installing a controller once by hand?",
-    "choices": {"A": "It removes all need for CPU workers", "B": "It replaces Git with the cluster database", "C": "It continuously reconciles the declared configuration"},
-    "hint": "Consider what should happen after a controller pod is restarted."
+    "choices": {
+      "A": "It removes all need for CPU workers",
+      "B": "It replaces Git with the cluster database",
+      "C": "It continuously reconciles the declared configuration"
+    },
+    "hint": "Consider what should happen after a controller pod is restarted.",
+    "source_file": "200-platform/lab_2_operators.adoc",
+    "try_command": "oc apply -k deploy/operators"
   },
   {
-    "title": "MaaS: a governed model endpoint",
+    "title": "Lab 1.3 — Publish Qwen3.8 as a service",
     "source": "Lab 1.3 and Lab 2.1 — Publish and call Qwen3.8",
     "explain": "OpenCode sends OpenAI-compatible requests to Qwen3.8 on this cluster. MaaS authenticates its injected API key and applies the subscription's token quota. We test both model discovery and an actual completion, without displaying the key.",
-    "try": "oc get llminferenceservice,maasmodelref -n llm-serving",
     "question": "What does MaaS add in front of the inference service?",
-    "choices": {"A": "Authenticated model access and token quotas", "B": "A public external model provider", "C": "A container build pipeline"},
-    "hint": "The same model is shared by developers; consider who may call it and how much they may consume."
+    "choices": {
+      "A": "Authenticated model access and token quotas",
+      "B": "A public external model provider",
+      "C": "A container build pipeline"
+    },
+    "hint": "The same model is shared by developers; consider who may call it and how much they may consume.",
+    "source_file": "200-platform/lab_3_openshift_ai_overview.adoc",
+    "try_command": "oc get llminferenceservice,maasmodelref -n llm-serving"
   },
   {
-    "title": "Your browser workspace",
+    "title": "Lab 1.4 — Hand the keys",
+    "source": "Lab 1.4",
+    "source_file": "200-platform/lab_5_agents_md.adoc",
+    "explain": "The platform engineer hands the developer a Dev Spaces launch URL and the Go template. AGENTS.md contains the generation and delivery rules; opencode.json selects the in-cluster model. The workshop companion stays here in Cloud Terminal while the participant later opens the coding workspace.",
+    "try_command": "oc get checluster devspaces -n openshift-operators",
+    "question": "What guides the coding agent when generating and shipping the application?",
+    "choices": {
+      "A": "Only the terminal scrollback",
+      "B": "The project AGENTS.md and prepared template",
+      "C": "An AWS billing account password"
+    },
+    "hint": "Look at the runbook shipped with the Go app template."
+  },
+  {
+    "title": "Lab 2.1 — Launch the developer workspace",
     "source": "Lab 1.4 and Lab 2.1 — Launch Dev Spaces",
-    "explain": "Dev Spaces runs the editor and development tools in a persistent workspace pod. OpenCode and its MaaS configuration are injected. This companion is a separate experimental project; the existing Fortune Cookie source remains in /projects/go-app-template.",
+    "explain": "Now switch to the developer persona. Open the Dev Spaces launch URL, trust the template and workspace, then use its terminal for the coding exercise. The companion continues in the Cloud Terminal bastion and checks the workspace from there. Dev Spaces is one lab within this global workshop, not the companion host.",
     "try": "opencode --version",
     "question": "Where does this workshop's developer environment run?",
-    "choices": {"A": "In the GitHub Pages frontend", "B": "In a Dev Spaces workspace pod on the cluster", "C": "On a required local Docker installation"},
-    "hint": "Your browser displays the editor, but the terminal commands execute somewhere else."
+    "choices": {
+      "A": "In the GitHub Pages frontend",
+      "B": "In a Dev Spaces workspace pod on the cluster",
+      "C": "On a required local Docker installation"
+    },
+    "hint": "Your browser displays the editor, but the terminal commands execute somewhere else.",
+    "source_file": "300-developer/lab_1_devspace_launch.adoc",
+    "try_command": "Open the Dev Spaces factory URL printed by the companion"
   },
   {
-    "title": "From prompt to a running Go application",
+    "title": "Lab 2.2 — Prompt to production",
     "source": "Lab 2.2 — Plan, build, deploy, then ship a change",
-    "explain": "OpenCode follows AGENTS.md to write the Go app and push its source. Tekton builds and pushes an image. The developer's Argo CD watches the deployment configuration in Git. We inspect the app already produced by that workflow. To practise coding later, open /projects/go-app-template and use Build mode there.",
-    "try": "oc get application fortune-cookie -n fortune-cookie-dev",
+    "explain": "In the developer workspace, follow the guide: plan the Fortune Cookie Go app, implement it in the same session, then ship a change. OpenCode follows AGENTS.md, Tekton builds an image and Argo CD deploys it. Return to this Cloud Terminal companion for explanations, questions and verification. In this existing lab the app is already deployed, so inspect its delivery evidence instead of rebuilding it automatically.",
     "question": "Which pairing describes the delivery workflow?",
-    "choices": {"A": "Argo CD compiles Go; Tekton serves HTTP", "B": "MaaS builds the image; Dev Spaces reconciles production", "C": "Tekton builds the image; Argo CD reconciles the deployment"},
-    "hint": "Separate making an image from keeping the running application aligned with Git."
+    "choices": {
+      "A": "Argo CD compiles Go; Tekton serves HTTP",
+      "B": "MaaS builds the image; Dev Spaces reconciles production",
+      "C": "Tekton builds the image; Argo CD reconciles the deployment"
+    },
+    "hint": "Separate making an image from keeping the running application aligned with Git.",
+    "source_file": "300-developer/lab_3_opencode_dev.adoc",
+    "try_command": "oc get application fortune-cookie -n fortune-cookie-dev"
   },
   {
-    "title": "See the GPU and token usage",
+    "title": "Lab 2.3 — Audit the application",
+    "source": "Lab 2.3",
+    "source_file": "300-developer/lab_5_validate.adoc",
+    "explain": "Ask the coding agent to check resource requests and limits, health probes, pod security and Route TLS. The global companion reads the resulting Deployment and Route to verify the workshop rules. Requests guide scheduling, limits cap consumption, and probes control health handling.",
+    "try_command": "oc get deployment fortune-cookie -n fortune-cookie-dev",
+    "question": "What should you verify before calling the deployed app ready?",
+    "choices": {
+      "A": "Resources, health probes, pod security and HTTPS",
+      "B": "Only that a Git repository exists",
+      "C": "Only that the GPU is busy"
+    },
+    "hint": "A running pod alone does not prove that the workload follows the platform rules."
+  },
+  {
+    "title": "Lab 3.1 — GPU and token metrics",
     "source": "Lab 3.1 — GPU and token metrics",
     "explain": "DCGM measures GPU utilization and memory. vLLM exports prompt and generated token counters. GPU usage falls when no prompt is running; a zero reading does not imply a broken model. The MaaS subscription limits consumption, while metrics show observed usage.",
-    "try": "oc get maassubscription qwen3-workshop -n models-as-a-service",
     "question": "Which measurements show this workshop's AI workload?",
-    "choices": {"A": "DCGM GPU metrics and vLLM token counters", "B": "Only requests to the Fortune Cookie route", "C": "Only the number of Git commits"},
-    "hint": "The Go app serves fixed messages; the model does work when OpenCode generates a response."
+    "choices": {
+      "A": "DCGM GPU metrics and vLLM token counters",
+      "B": "Only requests to the Fortune Cookie route",
+      "C": "Only the number of Git commits"
+    },
+    "hint": "The Go app serves fixed messages; the model does work when OpenCode generates a response.",
+    "source_file": "400-observability/lab_1_llm_metrics.adoc",
+    "try_command": "oc get maassubscription qwen3-workshop -n models-as-a-service"
+  },
+  {
+    "title": "Wrap-up — Explain the complete platform",
+    "source": "Conclusion",
+    "source_file": "conclusion.adoc",
+    "explain": "Connect the whole workshop: RHDP provides the base cluster and bastion; the GPU serves Qwen, MaaS governs access, Dev Spaces hosts the developer, Tekton builds, Argo CD reconciles, and DCGM/vLLM show consumption. Summarize what you would change for a team and which lab you would like to revisit.",
+    "try_command": "oc get application fortune-cookie -n fortune-cookie-dev",
+    "question": "Which sequence connects developer intent to a running app?",
+    "choices": {
+      "A": "MaaS builds images and DCGM deploys them",
+      "B": "OpenCode generates, Tekton builds, Argo CD reconciles",
+      "C": "The static Cloud Terminal page provisions the cluster"
+    },
+    "hint": "Keep code generation, image construction and GitOps reconciliation distinct."
   }
 ]

@@ -65,11 +65,33 @@ class ProgressTests(unittest.TestCase):
         self.assertNotIn("sk-oai", json.dumps(result))
 
     def test_finished_course_remains_finished_on_resume(self):
-        self.state.write_text(json.dumps({"step": 5, "checks": {"5": True}, "quizzes": {"5": True}, "completed": list(range(5))}))
+        self.state.write_text(json.dumps({"step": 9, "checks": {"9": True}, "quizzes": {"9": True}, "completed": list(range(9))}))
         self.assertTrue(self.run_action("next")["finished"])
         self.assertTrue(self.run_action("status")["finished"])
         self.run_action("next")
-        self.assertEqual(self.run_action("status")["completed"], list(range(6)))
+        self.assertEqual(self.run_action("status")["completed"], list(range(10)))
+
+    def test_run_reuses_an_already_deployed_step(self):
+        with patch.object(companion, "verify", return_value={"ready": True}), patch.object(companion.subprocess, "run") as execute:
+            self.assertTrue(companion.run_step(2)["already_complete"])
+        execute.assert_not_called()
+
+    def test_unsupported_browser_or_cloud_action_is_manual(self):
+        with patch.object(companion, "verify", side_effect=RuntimeError("Not ready")), patch.object(companion.subprocess, "run") as execute:
+            self.assertTrue(companion.run_step(1)["manual_step"])
+        execute.assert_not_called()
+
+    def test_failed_platform_action_stops_before_later_applies(self):
+        with patch.object(companion, "verify", side_effect=RuntimeError("Not ready")), patch.object(companion.subprocess, "run", return_value=type("Result", (), {"returncode": 1})()) as execute:
+            with self.assertRaises(RuntimeError):
+                companion.run_step(3)
+        self.assertEqual(execute.call_count, 1)
+
+    def test_cluster_tools_keep_the_bastion_authentication_locations(self):
+        with patch.dict("os.environ", {"XDG_CONFIG_HOME": "/private-opencode/config", "WORKSHOP_HOST_XDG_CONFIG_HOME": "/workshop/config", "XDG_CACHE_HOME": "/private-opencode/cache", "WORKSHOP_HOST_XDG_CACHE_HOME": ""}):
+            env = companion.host_env()
+        self.assertEqual(env["XDG_CONFIG_HOME"], "/workshop/config")
+        self.assertNotIn("XDG_CACHE_HOME", env)
 
 
 if __name__ == "__main__":

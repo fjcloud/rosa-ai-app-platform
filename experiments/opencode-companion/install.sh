@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Install the pinned Linux x64 experiment binary, without replacing injected OpenCode.
+# Install the pinned Linux x64 companion binary on the RHDP bastion.
 set -euo pipefail
 for tool in curl python3 oc; do
-  command -v "$tool" >/dev/null || { echo "Missing $tool; use the workshop Dev Space." >&2; exit 1; }
+  command -v "$tool" >/dev/null || { echo "Missing $tool; use the workshop bastion through Cloud Terminal." >&2; exit 1; }
 done
 [[ "$(uname -s)/$(uname -m)" == Linux/x86_64 ]] || {
-  echo 'This experiment installer targets the existing Linux x64 Dev Space.' >&2
-  exit 1
-}
-[[ -n "${OPENAI_BASE_URL:-}" && -n "${OPENAI_API_KEY:-}" ]] || {
-  echo 'Open the workshop Dev Space with its injected MaaS configuration first.' >&2
+  echo 'This experiment installer targets the existing Linux x64 RHDP bastion.' >&2
   exit 1
 }
 oc whoami >/dev/null

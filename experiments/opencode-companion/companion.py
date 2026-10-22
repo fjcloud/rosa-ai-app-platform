@@ -1,28 +1,47 @@
 #!/usr/bin/env python3
-"""Small, resumable course controller. Cluster operations are read-only."""
+"""Resumable whole-workshop controller, with explicit bounded platform actions."""
 import argparse
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 STATE = Path(os.environ.get("COMPANION_STATE", str(ROOT / ".progress.json")))
-ANSWERS = ["B", "C", "A", "B", "C", "A"]
+WORKSHOP = Path(os.environ.get("WORKSHOP_REPO", str(ROOT.parents[1])))
+ANSWERS = ["B", "B", "C", "A", "B", "B", "C", "A", "A", "B"]
 FEEDBACK = [
+    "Use the assigned existing cluster and bastion; RHDP already manages their lifecycle and billing.",
     "The GPU executes inference; the CPU workers run the platform and development services.",
     "Operators reconcile desired configuration continuously, including after a pod restart.",
     "MaaS adds authenticated access and token quotas in front of the inference service.",
+    "AGENTS.md provides the coding agent's rules, alongside the prepared application template.",
     "Dev Spaces injects tools and credentials into a persistent browser workspace.",
     "Tekton builds the image; Argo CD reconciles the application with its Git configuration.",
+    "Check resource requests and limits, probes, restricted pod security, and HTTPS.",
     "DCGM measures GPU activity, while vLLM records prompt and generated tokens.",
+    "OpenCode generates the application, Tekton builds its image, and Argo CD reconciles it from Git.",
 ]
 
 
+def host_env():
+    env = os.environ.copy()
+    # OpenCode has private XDG directories. ROSA/OCM must retain the bastion's
+    # own config locations and its already authenticated workshop account.
+    for name in ["XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"]:
+        original = env.get("WORKSHOP_HOST_" + name)
+        if original:
+            env[name] = original
+        else:
+            env.pop(name, None)
+    return env
+
+
 def oc(*args):
-    result = subprocess.run(["oc", "--request-timeout=20s", *args], capture_output=True, text=True, timeout=30)
+    result = subprocess.run(["oc", "--request-timeout=20s", *args], capture_output=True, text=True, timeout=30, env=host_env())
     if result.returncode:
         raise RuntimeError("OpenShift read failed; check your login and access.")
     return json.loads(result.stdout) if result.stdout.strip().startswith(("{", "[")) else result.stdout.strip()
@@ -48,7 +67,7 @@ def request(url, token, body=None):
         return json.load(response)
 
 
-def verify(index):
+def verify_existing(index):
     if index == 0:
         nodes = get("nodes")["items"]
         gpu = [n for n in nodes if int(n["status"].get("allocatable", {}).get("nvidia.com/gpu", "0")) > 0]
@@ -65,7 +84,7 @@ def verify(index):
         assert condition(get("llminferenceservice", "qwen3", "llm-serving"), "Ready"), "Model is not Ready."
         base = os.environ.get("OPENAI_BASE_URL", "")
         key = os.environ.get("OPENAI_API_KEY", "")
-        assert base.startswith("https://") and key.startswith("sk-oai-"), "Use the Dev Space with its injected MaaS configuration."
+        assert base.startswith("https://") and key.startswith("sk-oai-"), "Prepare the companion's MaaS configuration on the bastion."
         host = urllib.parse.urlsplit(base).netloc
         models = request("https://" + host + "/v1/models", key)
         assert any(m.get("owned_by") == "llm-serving/qwen3" and m.get("ready") for m in models.get("data", [])), "Workshop model is missing from discovery."
@@ -102,6 +121,62 @@ def verify(index):
     return {"metrics": values, "subscription": "Active", "note": "GPU utilization can be zero when idle; token counters are cumulative."}
 
 
+def verify(index):
+    if index == 0:
+        result = subprocess.run(["bash", str(WORKSHOP / "scripts/onboard.sh")], capture_output=True, text=True, timeout=90, env=host_env())
+        assert result.returncode == 0, "Bastion onboarding check failed; run bash scripts/onboard.sh from the workshop repository."
+        account = subprocess.run(["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"], capture_output=True, text=True, timeout=30, env=host_env())
+        assert account.returncode == 0, "The assigned AWS session is unavailable."
+        return {"host": "RHDP bastion / Cloud Terminal", "user": oc("whoami"), "aws_account": account.stdout.strip(), "onboarding": "passed"}
+    if index == 4:
+        che = get("checluster", "devspaces", "openshift-operators")
+        assert che["status"].get("chePhase") == "Active", "Dev Spaces is not Active."
+        url = che["status"]["cheURL"].rstrip("/")
+        return {"developer_launch_url": url + "/#https://github.com/fjcloud/go-app-template?ai-provider=opencodeai/opencode", "guide": "https://fjcloud.github.io/rosa-ai-app-platform/modules/200-platform/lab_5_agents_md.html", "companion_host": "Still the bastion; no Dev Space is required for the companion."}
+    if index == 7:
+        app = os.environ.get("APP_NAME", "fortune-cookie")
+        deployment = get("deployment", app, app + "-dev")
+        spec = deployment["spec"]["template"]["spec"]
+        c = spec["containers"][0]
+        assert c["resources"]["requests"] == {"cpu": "50m", "memory": "64Mi"}, "Resource requests differ from the workshop rules."
+        assert c["resources"]["limits"] == {"cpu": "200m", "memory": "128Mi"}, "Resource limits differ from the workshop rules."
+        assert all(c[p]["httpGet"]["path"] == "/healthz" for p in ["readinessProbe", "livenessProbe"]), "Health probes are missing."
+        assert spec["securityContext"]["runAsNonRoot"] and not c["securityContext"]["allowPrivilegeEscalation"], "Restricted security settings are missing."
+        tls = get("route", app, app + "-dev")["spec"]["tls"]
+        assert tls["termination"] == "edge" and tls["insecureEdgeTerminationPolicy"] == "Redirect", "Route HTTPS settings differ."
+        return {"resources": "workshop limits verified", "probes": "/healthz", "security": "restricted", "https": "edge + Redirect"}
+    if index == 9:
+        return {"application": verify_existing(4), "workshop": "Acts 0–3 explored from Cloud Terminal"}
+    return verify_existing({1: 0, 2: 1, 3: 2, 5: 3, 6: 4, 8: 5}[index])
+
+
+def guide(lesson):
+    path = WORKSHOP / "content/modules/ROOT/pages" / lesson["source_file"]
+    return {"path": str(path), "content": path.read_text()[:22000]}
+
+
+def run_step(index):
+    # Reconcile only the platform portions of the guide, and only on explicit
+    # learner request. An already verified deployed step is left in place.
+    try:
+        return {"already_complete": True, "evidence": verify(index)}
+    except Exception:
+        pass
+    if index not in [2, 3]:
+        return {"manual_step": True, "instruction": "Read the current guide and show its commands or browser action. Do not improvise cloud creation or developer code from this controller."}
+    commands = [["oc", "apply", "-k", "deploy/operators"]] if index == 2 else [
+        ["oc", "apply", "-k", "deploy/tasks"],
+        ["oc", "apply", "-k", "deploy/instances"],
+        ["bash", "deploy/instances/configure-platform.sh"],
+        ["oc", "apply", "-k", "deploy/inference"],
+    ]
+    for command in commands:
+        result = subprocess.run(command, cwd=WORKSHOP, stdout=sys.stderr, stderr=sys.stderr, timeout=900, env=host_env())
+        if result.returncode:
+            raise RuntimeError("Workshop command failed; inspect the terminal output before retrying.")
+    return {"requested": True, "instruction": "Run the live check; if resources are still starting, explain the wait and offer Retry."}
+
+
 def save(state):
     STATE.parent.mkdir(parents=True, exist_ok=True)
     temporary = STATE.with_suffix(".tmp")
@@ -111,7 +186,7 @@ def save(state):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["status", "lesson", "check", "answer", "next"])
+    parser.add_argument("action", choices=["status", "lesson", "guide", "run", "check", "answer", "next"])
     parser.add_argument("choice", nargs="?", choices=["A", "B", "C"])
     args = parser.parse_args()
     course = json.loads((ROOT / "course.json").read_text())
@@ -121,6 +196,13 @@ def main():
     output = {"step": i + 1, "total": len(course), "title": course[i]["title"], "check_passed": state["checks"].get(key, False), "quiz_passed": state["quizzes"].get(key, False), "completed": state["completed"], "finished": len(state["completed"]) == len(course)}
     if args.action == "lesson":
         output["lesson"] = course[i]
+    elif args.action == "guide":
+        output["guide"] = guide(course[i])
+    elif args.action == "run":
+        try:
+            output["execution"] = run_step(i)
+        except Exception as error:
+            output["error"] = str(error) if isinstance(error, RuntimeError) else type(error).__name__
     elif args.action == "check":
         try:
             output["evidence"] = verify(i)
