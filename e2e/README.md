@@ -42,3 +42,15 @@ The guide's creation command was accepted by ROSA CLI 1.2.53 on an existing ROSA
 AWS initially rejected `g6e.xlarge` launches in all four supported `us-east-1` zones with `InsufficientInstanceCapacity`. Attempts to reserve one `g6e.2xlarge` or `g6e.4xlarge` also failed in every zone. No reservation was created. Capacity later became available in `us-east-1d`: the on-demand `gpu` pool reached `1/1`, and its `g6e.xlarge` node passed the readiness helper with the expected GPU taint. GPU driver and model execution remain unverified; the full platform guide requires OpenShift 4.22 or later.
 
 A Spot pool was then requested using the official ROSA 1.2.66 binary after verifying its release checksum. The regional G/VT Spot quota was sufficient, but the API rejected the request on 4.19.49 with `Spot Market Options are not allowed for this version`. No Spot pool or instance was created. The existing on-demand GPU worker remained Ready. ROSA 1.2.53 does not apply its creation Spot flag to HCP pools; verify the returned pool's `aws_node_pool.spot_market_options` with a current CLI instead of trusting flag acceptance.
+
+## ROSA 4.22 validation — 2026-10-22
+
+The hosted control plane was upgraded through the supported 4.20.42 and 4.21.37 releases to **4.22.18**. Both worker pools also reached 4.22.18: two `m6a.xlarge` CPU nodes and one On-Demand `g6e.xlarge` GPU node, all Ready on Kubernetes 1.35.8. All 23 cluster operators were available with none degraded. Temporary CPU capacity was removed and the original replacement settings restored (`max-surge=1`, `max-unavailable=0`).
+
+The existing `scripts/onboard.sh` and `scripts/wait-for-gpu.sh` checks passed. The published Cloud Terminal launcher also passed its live browser test against the upgraded cluster, including catalog lookup, terminal embedding, and authenticated `oc` access.
+
+The account was missing `AWSServiceRoleForEC2Spot`; the standard service-linked role was created and verified. A separate GPU Spot pool was then requested with ROSA CLI 1.2.66. On 4.22.18 the API accepted it and returned non-null Spot market options, but AWS denied the actual `ec2:RunInstances` request through an organization service control policy. No Spot worker was provisioned; the failed test pool was removed. The working On-Demand GPU remains the default for this RHDP account.
+
+GPU driver installation, model serving, and the full platform/developer simulations were not run during this cluster upgrade.
+
+One residual platform condition remains: `ClusterVersion.Upgradeable=False` with `ResourceDeletesInProgress` for deployment `openshift-kube-storage-version-migrator/migrator`. That deployment is running, with no deletion timestamp or finalizers. The 4.22.18 release is completed and all cluster operators remain available; another minor upgrade requires this managed cleanup condition to be resolved. No upgrade gate or running migrator deployment was forced or removed.
