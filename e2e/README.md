@@ -16,6 +16,16 @@ Cleanup: `e2e/platform-cleanup.sh` and `e2e/dev-cleanup.sh`.
 - Workshop GitOps already applied (`deploy/operators`, `deploy/instances`, `deploy/inference`)
 - `LLMInferenceService/qwen3` Ready in `llm-serving` and published through Models-as-a-Service
 
+## Preflight regression checks
+
+These checks use a stub OpenShift CLI and do not connect to a cloud account:
+
+```bash
+python3 -m unittest discover -s e2e -p 'test_platform_preflight.py'
+```
+
+They cover 4.19 rejection, incomplete upgrades, operator timeouts, stop-on-failure behavior and checking version before CPU capacity. `scripts/wait-for-platform.sh` uses a default 600-second budget for Deployment creation and then availability, per operator; `OPERATOR_WAIT_SECONDS` overrides that duration for tests.
+
 ## Usage
 
 ```bash

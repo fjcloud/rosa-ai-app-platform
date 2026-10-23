@@ -14,6 +14,7 @@ oc whoami >/dev/null 2>&1 || {
   echo 'The platform labs require cluster-admin access. Ask the facilitator for the assigned administrator login.' >&2
   exit 1
 }
+bash "$(dirname "${BASH_SOURCE[0]}")/check-version.sh"
 oc get nodes -o json | python3 -c '
 import json,sys
 nodes=json.load(sys.stdin).get("items",[])
@@ -29,11 +30,4 @@ cpu=sum(millicores(n) for n in cpu_workers)
 if cpu < 17500:
     sys.exit("Insufficient CPU worker capacity: "+str(cpu/1000)+" allocatable cores. Ask the facilitator for five m6a.xlarge CPU workers (or at least 17.5 allocatable CPU cores), plus the GPU pool.")
 print("Existing cluster access verified; workers are Ready; CPU capacity:",cpu/1000,"cores.")'
-oc get clusterversion version -o json | python3 -c '
-import json,re,sys
-version=json.load(sys.stdin).get("status",{}).get("desired",{}).get("version","")
-m=re.match(r"^(\d+)\.(\d+)\.",version)
-if not m or tuple(map(int,m.groups())) < (4,22):
-    sys.exit("This guide targets OpenShift 4.22 or later; the existing cluster reports "+(version or "an unknown version")+". Ask the facilitator for a compatible RHDP environment before Act 1.")
-print("OpenShift version:",version)'
 echo 'Ready for Act 1. No cluster, identity, or billing resources were created.'

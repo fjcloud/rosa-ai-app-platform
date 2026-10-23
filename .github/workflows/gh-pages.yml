@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
+      - name: check platform preflight
+        run: python3 -m unittest discover -s e2e -p 'test_platform_preflight.py'
       - name: configure pages
         uses: actions/configure-pages@v5
       - name: setup node

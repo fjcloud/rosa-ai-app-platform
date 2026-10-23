@@ -67,26 +67,11 @@ curl https://maas.<apps-domain>/llm-serving/qwen3/v1/chat/completions \
 
 == ✅ Checkpoint: Operators Ready
 
-Lab 1.2 is still running in the background. Wait here before you apply instances. Wait for the operators, then install the workshop Tekton tasks after their CRDs exist. `oc wait` only works after each Deployment exists.
+Lab 1.2 is still running in the background. Wait here before you apply instances. Wait for the operators, then install the workshop Tekton tasks after their CRDs exist. The helper first checks the completed cluster version, then waits for each Deployment to exist and become Available. It stops on the first failure; a missing Deployment cannot leave the terminal waiting indefinitely.
 
 [source,sh,role=execute]
 ----
-wait_deploy() {
-  local ns=$1 dep=$2
-  until oc get deploy/"$dep" -n "$ns" >/dev/null 2>&1; do sleep 5; done
-  oc wait deploy/"$dep" -n "$ns" --for=condition=Available --timeout=600s
-}
-
-wait_deploy openshift-operators devspaces-operator
-wait_deploy openshift-nfd nfd-controller-manager
-wait_deploy nvidia-gpu-operator gpu-operator
-wait_deploy redhat-ods-operator rhods-operator
-wait_deploy kuadrant-system kuadrant-operator-controller-manager
-wait_deploy openshift-lws-operator openshift-lws-operator
-wait_deploy cert-manager cert-manager
-wait_deploy openshift-pipelines tekton-pipelines-controller
-
-oc apply -k deploy/tasks
+bash scripts/wait-for-platform.sh && oc apply -k deploy/tasks
 ----
 
 .Expected Output
@@ -99,11 +84,15 @@ deployment.apps/rhods-operator condition met
 deployment.apps/kuadrant-operator-controller-manager condition met
 deployment.apps/openshift-lws-operator condition met
 deployment.apps/cert-manager condition met
+deployment.apps/tekton-pipelines-controller condition met
+deployment.apps/openshift-gitops-server condition met
 ----
 
 [WARNING]
 ====
-If any `wait` times out, check `oc get pods -n <namespace>`. Common causes: image pull throttling, or worker CPU pressure. Provide enough CPU workers for the complete platform; do not scale down or disable managed operators to fit it.
+If the helper reports OpenShift 4.19, stop here: updating to another 4.19 patch does not meet this guide’s 4.22 prerequisite. The facilitator must prepare a compatible cluster; do not work around the check by disabling operators or installing another service mesh. OpenShift AI itself supports some 4.19 releases, but this workshop’s complete MaaS/Gateway path was validated on 4.22.
+
+If an operator wait times out, check `oc get subscriptions -n <namespace> -o yaml` and `oc get pods -n <namespace>`. Common causes include an OLM dependency resolution failure, image pull throttling or worker CPU pressure. Provide enough CPU workers for the complete platform; do not scale down or disable managed operators to fit it.
 ====
 
 == Step 1: Create Platform Instances

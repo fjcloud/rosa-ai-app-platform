@@ -5,3 +5,4 @@
 www/
 icons
 tools/.fonts/
+__pycache__/

@@ -63,6 +63,8 @@ cd rosa-ai-app-platform
 bash scripts/onboard.sh
 ----
 
+Do not continue if the check fails. The catalog can assign a 4.19 cluster even though this guide needs 4.22. A suggested “next version” such as 4.19.51 is only a patch in the same minor release. Ask the facilitator to complete supported minor upgrades or provide a compatible environment before Act 1.
+
 Keep this directory for all later `oc apply -k deploy/...` commands. The check validates the existing login and worker readiness; it does not provision a cluster, create users, or alter billing.
 
 == Checkpoint

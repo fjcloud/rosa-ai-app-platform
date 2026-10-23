@@ -11,6 +11,8 @@ Cloud SSAs use this guide to prepare access and lead participants through the pl
 
 The platform labs require an existing ROSA HCP cluster, cluster-admin access, OpenShift 4.22 or later, and AWS GPU quota. Allocate at least five `m6a.xlarge` CPU workers for the platform, in addition to the GPU worker. Lab 1.1 detects the connected cluster and reuses its worker subnet to create one GPU node. The workshop adds the GPU pool, platform operators, model serving, and developer tooling; it does not create the base cluster.
 
+Check the actual completed cluster version before assigning participants. RHDP can deliver a 4.19 cluster even when the catalog advertises a newer patch. The workshop’s MaaS/Gateway API path requires 4.22; upgrading from 4.19.50 to 4.19.51 does not meet that prerequisite. The facilitator must complete supported minor upgrades of the control plane and worker pools, or provide a compatible assignment, before Act 1. OpenShift AI’s broader version support is not a validation of this entire workshop on 4.19.
+
 The facilitator can expand the default CPU pool before participants start:
 
 [source,sh]
