@@ -106,3 +106,7 @@ Corrections from this run:
 - Use the current UI paths: **Gen AI studio → AI asset endpoints** and **Gen AI studio → API keys → Subscriptions**.
 
 Limits: the Spot SCP restriction and the managed migrator upgrade condition described above remain. The workshop uses On-Demand. Playground/RAG are outside this run; no OGXServer was deployed, and the UI's background LlamaStack discovery requests return HTTP 500 without preventing the MaaS catalog from loading. No ARO cluster was available for a live run; shared manifest fixes do not constitute ARO validation.
+
+## Deployment image contract
+
+The shared template now preconfigures the internal-registry image, pulls mutable `latest` tags with `Always`, and validates the rendered deployment image before Buildah. Ten template regression tests cover the contract. The identical validation step was exercised live on ARO; see the [image contract report](https://github.com/fjcloud/aro-ai-app-platform/blob/main/e2e/IMAGE-CONTRACT-VALIDATION.md). This is not a new full ROSA cloud E2E run.
