@@ -15,7 +15,7 @@ The story for today is a Monday at a company that wants its coding model to run 
 | Provisions GPU capacity, installs operators, publishes Qwen3.8 behind a governed OpenAI-compatible API, and hands developers a short `AGENTS.md`.
 
 | *Developer* (afternoon)
-| Launches OpenShift Dev Spaces, talks to OpenCode backed by that in-cluster LLM, ships a real app through Tekton and Argo CD, then asks the same model to audit the manifests.
+| Launches OpenShift Dev Spaces, talks to OpenCode backed by that in-cluster LLM, ships a real app through Tekton and Argo CD.
 |===
 
 == What You Will Build
@@ -35,7 +35,6 @@ The LLM writes the app. Qwen3.8 is a *platform* capability.
 * A personal Git repository on *ephemeral Git* (workshop-scoped, no GitHub account)
 * A *Fortune Cookie* Go app generated live by OpenCode + Qwen3.8
 * Image build and GitOps deploy from git, ephemeral Git, and `oc` — no Ansible, no local Docker
-* Platform rules (limits, probes, SCC, TLS) audited by the same model
 
 === Act 3 — The bill
 * NVIDIA DCGM GPU metrics and vLLM token metrics in the same console
@@ -88,7 +87,7 @@ The platform uses cluster-wide resources and the app uses fixed namespace names.
 | Hand the Keys (`AGENTS.md` + Dev Spaces URL)
 | 10 min
 
-.3+| *2 — First day*
+.2+| *2 — First day*
 | 2.1
 | Launch Your Dev Space
 | 10 min
@@ -96,10 +95,6 @@ The platform uses cluster-wide resources and the app uses fixed namespace names.
 | 2.2
 | Prompt to Deployment (generate, ship, change)
 | 35 min
-
-| 2.3
-| Audit with OpenCode
-| 10 min
 
 | *3 — The bill*
 | 3.1

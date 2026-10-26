@@ -14,7 +14,6 @@
 
 * xref:300-developer/lab_1_devspace_launch.adoc[Lab 2.1 — Launch Your Dev Space]
 * xref:300-developer/lab_3_opencode_dev.adoc[Lab 2.2 — Prompt to Deployment]
-* xref:300-developer/lab_5_validate.adoc[Lab 2.3 — Audit with OpenCode]
 
 *Act 3 — The bill*
 

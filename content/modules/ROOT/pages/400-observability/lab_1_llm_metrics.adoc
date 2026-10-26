@@ -69,7 +69,7 @@ Read these four panels (those names are on the dashboard). The numerical ranges 
 On *GPU Utilization* over the last few hours you should see:
 
 * A spike when weights loaded into VRAM
-* Bursts when you used OpenCode (plan, build, the audit)
+* Bursts when you used OpenCode (plan, build, change)
 * Idle valleys between prompts — the GPU is not at 100% when nobody is chatting
 
 [TIP]
@@ -193,7 +193,7 @@ You have also opened *Observe → Dashboards* (DCGM), *Observe → Metrics* (`vl
 
 == Facilitator cleanup after everyone finishes
 
-Keep shared inference available until all participants have completed their coding and audit tasks. Participants should export any code they want to keep before the RHDP assignment expires.
+Keep shared inference available until all participants have completed their coding and deployment tasks. Participants should export any code they want to keep before the RHDP assignment expires.
 
 For an assignment dedicated to this workshop, the facilitator can remove the model and its cache, then the GPU pool, from the *bastion terminal*. This stops coding inference; the Fortune Cookie app can still serve its existing messages.
 

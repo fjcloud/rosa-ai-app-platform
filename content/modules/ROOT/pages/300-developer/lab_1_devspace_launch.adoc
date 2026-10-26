@@ -180,7 +180,7 @@ Expected content:
 }
 ----
 
-OpenCode still reads `AGENTS.md` from the project directory at the start of every session. These instructions guide generation; the audit in Lab 2.3 checks the deployed result.
+OpenCode still reads `AGENTS.md` from the project directory at the start of every session. These instructions guide generation. Tekton validates the image reference, and you check the deployed application in Lab 2.2.
 
 `limit.output` must stay well below `--max-model-len` (262144). The configured output allowance is 32 768 tokens within the 256K context window.
 

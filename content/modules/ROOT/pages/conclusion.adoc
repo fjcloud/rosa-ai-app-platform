@@ -4,10 +4,6 @@ You played both roles in the workshop. As the platform engineer, you added one L
 
 Qwen3.8 was the coding service. The Fortune Cookie application serves local messages and does not call the model at runtime. Coding inference stayed on ROSA; the workshop template uses an external ephemeral Git service for source delivery.
 
-== What the audit showed
-
-`AGENTS.md` helped the agent follow platform conventions. You then checked resource limits, probes, security context and Route TLS against live resources. Model instructions complement CI, admission policies and review; they do not replace them.
-
 == Costs and cleanup
 
 You inspected GPU activity, vLLM token metrics and the MaaS subscription. The token quota limits consumption; VM and disk charges continue while those resources exist, even when the model is idle. Follow Lab 3.1 for facilitator cleanup after all participants finish. Never delete the shared RHDP cluster.
