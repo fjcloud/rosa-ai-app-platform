@@ -8,7 +8,7 @@ Checks the platform, developer workflow, and Act 3 observability. The developer 
 | `e2e/dev-run.sh` | Developer | Template repo, OpenCode-generated Fortune Cookie, Tekton image, Argo CD sync, live route, resource/probe/security audit |
 | `e2e/observability-run.sh` | Both | Live DCGM and vLLM metrics, recorded tokens, dashboard, active MaaS quota |
 
-Cleanup: `e2e/platform-cleanup.sh` and `e2e/dev-cleanup.sh`.
+The participant guide leaves the environment available until its RHDP expiration. The older teardown helpers are outside that flow.
 
 ## Prerequisites
 

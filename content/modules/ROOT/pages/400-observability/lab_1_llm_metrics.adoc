@@ -191,20 +191,6 @@ qwen3    https://maas.apps.<apps-domain>/llm-serving/qwen3   True
 
 You have also opened *Observe → Dashboards* (DCGM), *Observe → Metrics* (`vllm:…`), and the OpenShift AI catalog (5M tokens / 24h).
 
-== Facilitator cleanup after everyone finishes
-
-Keep shared inference available until all participants have completed their coding and deployment tasks. Participants should export any code they want to keep before the RHDP assignment expires.
-
-For an assignment dedicated to this workshop, the facilitator can remove the model and its cache, then the GPU pool, from the *bastion terminal*. This stops coding inference; the Fortune Cookie app can still serve its existing messages.
-
-[source,sh,role=execute]
-----
-cd "$HOME/rosa-ai-app-platform"
-oc delete -k deploy/inference
-CLUSTER=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-rosa delete machinepool --cluster "$CLUSTER" --machinepool gpu --yes
-----
-
-Wait for the pool and EC2 instance to disappear, and check storage cleanup in AWS. If you created an additional subnet, follow the scoped removal in Lab 1.1 after PrivateLink interfaces are gone. Keep the base cluster, original CPU pools and shared platform operators; RHDP manages the environment’s expiration. Do not run the E2E platform teardown script on a shared cluster.
+The assigned RHDP environment remains available for further experiments until it expires. Export code you want to keep before that expiration.
 
 ➡️ Move on to *Conclusion & Next Steps*.

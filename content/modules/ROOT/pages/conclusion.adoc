@@ -4,16 +4,16 @@ You played both roles in the workshop. As the platform engineer, you added one L
 
 Qwen3.8 was the coding service. The Fortune Cookie application serves local messages and does not call the model at runtime. Coding inference stayed on ROSA; the workshop template uses an external ephemeral Git service for source delivery.
 
-== Costs and cleanup
+== Costs and environment lifetime
 
-You inspected GPU activity, vLLM token metrics and the MaaS subscription. The token quota limits consumption; VM and disk charges continue while those resources exist, even when the model is idle. Follow Lab 3.1 for facilitator cleanup after all participants finish. Never delete the shared RHDP cluster.
+Usage metrics explain activity. VM and disk charges continue while resources remain provisioned. The assigned RHDP environment stays available until its scheduled expiration; export code you want to keep before then.
 
 == Next steps
 
 * Move source to an internal Git service if required by your organization.
 * Add automated validation and Tekton triggers for each Git push.
 * Replace mutable `latest` image tags with immutable image digests.
-* Design scoped developer permissions and per-team model access before sharing the platform.
+* Extend the scoped workshop identity to separate developer identities and per-team model access before sharing the platform.
 * Measure concurrency and latency before adding replicas or an autoscaler.
 
 == Resources

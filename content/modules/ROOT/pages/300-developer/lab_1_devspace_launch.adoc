@@ -60,17 +60,19 @@ A cold first launch can take 5–10 minutes while the developer and editor image
 +
 Do **not** sign in to GitHub Copilot. Che Code ships Copilot as a built-in; the platform disables it. Do not install Continue. Use OpenCode in the terminal to call the in-cluster Qwen model.
 
-== Log the workspace terminal into OpenShift
+== Check your scoped CLI access
 
-Browser SSO does not authenticate `oc` in a new workspace. Open a workspace terminal, then use the OpenShift console user menu → *Copy login command*. Paste the resulting `oc login` command into that terminal using your assigned lab administrator. Keep the token out of OpenCode and Git.
+The platform injects a separate developer kubeconfig into the workspace. Browser SSO and CLI access are separate; you do not paste an administrator token into the terminal or OpenCode.
 
 [source,sh,role=execute]
 ----
 oc whoami
-oc auth can-i '*' '*' --all-namespaces
+oc auth can-i create pipelineruns -n "${APP_NAME}-build"
+oc auth can-i create deployments -n "${APP_NAME}-dev"
+oc auth can-i use scc/privileged -n "${APP_NAME}-build"
 ----
 
-The check must return `yes` before deployment. These labs require administrator access to create namespaces and build permissions. A production platform would pre-create scoped developer permissions. If access is missing, ask the facilitator to prepare it.
+Expect the `workshop-developer` service account, then `yes`, `yes`, and `no`. The final `no` is intentional: OpenCode must not grant SCCs or use privileged containers. If build/deploy access is missing, ask the facilitator to rerun `scripts/prepare-developer.py` and restart the workspace. Keep the scoped identity; an administrator login is not a workaround.
 
 == Verify OpenCode is Running
 
