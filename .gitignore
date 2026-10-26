@@ -1,8 +1,8 @@
 *.swp
-.vscode
+.vscode/
 .cache/
 .cursor/
 www/
-icons
 tools/.fonts/
 __pycache__/
+*.py[cod]

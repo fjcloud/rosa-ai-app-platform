@@ -42,3 +42,9 @@ Use one assigned cluster per participant. On a shared cluster, the facilitator p
 Instruction pages are in `content/modules/ROOT/pages`; Kubernetes manifests are in `deploy`. The content builds with Antora and is published on https://fjcloud.github.io/rosa-ai-app-platform/modules/index.html[GitHub Pages].
 
 Provisioning an independent cluster remains available through https://github.com/fjcloud/rosa-quickstart[rosa-quickstart], outside the participant onboarding flow. Do not run it in an assigned RHDP environment that already has a cluster.
+
+== Maintain the workshop
+
+`make test` runs the regression checks. `make docs` builds the guide; `make serve` previews it at http://localhost:8443.
+
+`content/` contains the guide, `deploy/` the active platform/model manifests, `scripts/` the setup helpers, and `e2e/` the validation scripts. Retired simulation and teardown tooling remains in https://github.com/fjcloud/rosa-ai-app-platform/tree/c2cec6da6588e687c2fdfd2f6f81fca6a14f9563[the pre-cleanup revision].
