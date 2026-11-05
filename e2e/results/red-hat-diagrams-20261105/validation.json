@@ -1,0 +1,137 @@
+{
+  "platform": "rosa",
+  "documentation_build": "make docs passed",
+  "geometry": [
+    {
+      "platform": "rosa",
+      "name": "architecture-overview.svg",
+      "fonts": [
+        {
+          "family": "Red Hat Display",
+          "status": "loaded"
+        },
+        {
+          "family": "Red Hat Text",
+          "status": "loaded"
+        }
+      ],
+      "icons": 6,
+      "nodes": 6,
+      "issues": [],
+      "title": "AI-powered development on ROSA"
+    },
+    {
+      "platform": "rosa",
+      "name": "cicd-gitops.svg",
+      "fonts": [
+        {
+          "family": "Red Hat Display",
+          "status": "loaded"
+        },
+        {
+          "family": "Red Hat Text",
+          "status": "loaded"
+        }
+      ],
+      "icons": 7,
+      "nodes": 7,
+      "issues": [],
+      "title": "From prompt to a running application"
+    },
+    {
+      "platform": "rosa",
+      "name": "model-serving-architecture.svg",
+      "fonts": [
+        {
+          "family": "Red Hat Display",
+          "status": "loaded"
+        },
+        {
+          "family": "Red Hat Text",
+          "status": "loaded"
+        }
+      ],
+      "icons": 3,
+      "nodes": 4,
+      "issues": [],
+      "title": "Qwen3.8 as Models-as-a-Service"
+    },
+    {
+      "platform": "rosa",
+      "name": "the-bill-observability.svg",
+      "fonts": [
+        {
+          "family": "Red Hat Display",
+          "status": "loaded"
+        },
+        {
+          "family": "Red Hat Text",
+          "status": "loaded"
+        }
+      ],
+      "icons": 5,
+      "nodes": 5,
+      "issues": [],
+      "title": "Observe usage and explain behavior"
+    }
+  ],
+  "built_pages": [
+    {
+      "platform": "rosa",
+      "page": "index.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "200-platform/lab_3_openshift_ai_overview.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "200-platform/lab_5_agents_md.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "300-developer/lab_3_opencode_dev.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "400-observability/lab_1_llm_metrics.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    }
+  ],
+  "offline_svg_render": true,
+  "embedded_fonts_loaded": true,
+  "unmodified_official_icon_sources_verified": true,
+  "text_contrast_ratios": {
+    "#151515 on #e0e0e0": 13.83,
+    "#151515 on #ffffff": 18.26,
+    "#4d4d4d on #ffffff": 8.45,
+    "#0066cc on #ffffff": 5.57,
+    "#ffffff on #151515": 18.26
+  },
+  "reproducible": true,
+  "desktop_mobile": true,
+  "full_size_links": true,
+  "browser_args": [
+    "--use-mock-keychain"
+  ],
+  "diagram_sha256": {
+    "architecture-overview.svg": "14759eb4122c81df273c58076da32034c0eb9c3e3de34a2f797f064e09fb1d02",
+    "cicd-gitops.svg": "c6b1ecae0aa19050ff5c7d50a1d823cf67f6eba11b63d0921ed06f0bb0fb9609",
+    "model-serving-architecture.svg": "9ec5f092ef66be6bf7d27a61de8eac741a1b7a2f2cada0c238bcab265d8b3853",
+    "the-bill-observability.svg": "e17ed728d63f31ac00e7fac0c61096624d11426e38793ca9c0fd9031ec791893"
+  }
+}
