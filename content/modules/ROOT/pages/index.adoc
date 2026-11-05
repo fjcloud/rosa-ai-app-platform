@@ -20,7 +20,7 @@ The story for today is a Monday at a company that wants its coding model to run 
 
 == What You Will Build
 
-image::architecture-overview.png[In-cluster coding agent on ROSA, align="center"]
+image::architecture-overview.svg["In-cluster coding agent on ROSA",align="center",link=self]
 
 The LLM writes the app. Qwen3.8 is a *platform* capability.
 

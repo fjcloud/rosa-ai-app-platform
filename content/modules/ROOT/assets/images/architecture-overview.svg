@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="850" viewBox="0 0 1120 850" role="img" aria-labelledby="title desc">
+<title id="title">AI-powered development on ROSA</title><desc id="desc">One in-cluster coding model. A governed API. A repeatable delivery path.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0,0 L 10,5 L 0,10 z" fill="#687683"/></marker><marker id="blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0,0 L 10,5 L 0,10 z" fill="#0066cc"/></marker></defs><style>text{font-family:Arial,Helvetica,sans-serif}svg{background:white}</style>
+<rect width="1120" height="850" rx="16" fill="white"/>
+<rect x="40" y="36" width="38" height="5" rx="2" fill="#ee0000"/>
+<text x="40" y="77" font-size="30" fill="#151515" font-weight="700" text-anchor="start" class="">AI-powered development on ROSA</text>
+<text x="40" y="108" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="">One in-cluster coding model. A governed API. A repeatable delivery path.</text>
+<rect x="20" y="145" width="1080" height="205" rx="12" fill="#f6f7f9" stroke="#d5dbe1" stroke-width="1.5"/>
+<text x="40" y="174" font-size="17" fill="#52606d" font-weight="600" text-anchor="start" class="">Model access inside the ROSA cluster</text>
+<g data-role="node" data-node="dev">
+<rect x="60" y="200" width="260" height="128" rx="12" fill="white" stroke="#d5dbe1" stroke-width="1.5"/>
+<rect x="61" y="218" width="4" height="25" rx="2" fill="#d5dbe1"/>
+<text x="80" y="240.0" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">OpenCode in Dev</text>
+<text x="80" y="267.0" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">Spaces</text>
+<text x="80" y="304.0" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">Browser IDE + AGENTS.md</text>
+</g>
+<g data-role="node" data-node="maas">
+<rect x="430" y="200" width="260" height="128" rx="12" fill="white" stroke="#ee0000" stroke-width="1.5"/>
+<rect x="431" y="218" width="4" height="25" rx="2" fill="#ee0000"/>
+<text x="450" y="253.5" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">OpenShift AI MaaS</text>
+<text x="450" y="290.5" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">API key + token quota</text>
+</g>
+<g data-role="node" data-node="model">
+<rect x="800" y="200" width="260" height="128" rx="12" fill="white" stroke="#d5dbe1" stroke-width="1.5"/>
+<rect x="801" y="218" width="4" height="25" rx="2" fill="#d5dbe1"/>
+<text x="820" y="241.5" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">Qwen3.8-27B INT4</text>
+<text x="820" y="278.5" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">Red Hat vLLM on one</text>
+<text x="820" y="302.5" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">L40S</text>
+</g>
+<path data-role="connector" data-source="dev" data-target="maas" data-points="[[320, 264.0], [430, 264.0]]" d="M 320,264.0 L 430,264.0" fill="none" stroke="#687683" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path data-role="connector" data-source="maas" data-target="model" data-points="[[690, 264.0], [800, 264.0]]" d="M 690,264.0 L 800,264.0" fill="none" stroke="#687683" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="20" y="390" width="1080" height="230" rx="12" fill="#f6f7f9" stroke="#d5dbe1" stroke-width="1.5"/>
+<text x="40" y="419" font-size="17" fill="#52606d" font-weight="600" text-anchor="start" class="">Commit, build and deliver</text>
+<g data-role="node" data-node="git">
+<rect x="60" y="445" width="260" height="145" rx="12" fill="white" stroke="#d5dbe1" stroke-width="1.5"/>
+<rect x="61" y="463" width="4" height="25" rx="2" fill="#d5dbe1"/>
+<text x="80" y="481.5" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">Personal Git</text>
+<text x="80" y="508.5" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">repository</text>
+<text x="80" y="545.5" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">External workshop</text>
+<text x="80" y="569.5" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">service</text>
+</g>
+<g data-role="node" data-node="build">
+<rect x="430" y="445" width="260" height="145" rx="12" fill="white" stroke="#d5dbe1" stroke-width="1.5"/>
+<rect x="431" y="463" width="4" height="25" rx="2" fill="#d5dbe1"/>
+<text x="450" y="495.0" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">Tekton + registry</text>
+<text x="450" y="532.0" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">Build and store the</text>
+<text x="450" y="556.0" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">image</text>
+</g>
+<g data-role="node" data-node="app">
+<rect x="800" y="445" width="260" height="145" rx="12" fill="white" stroke="#ee0000" stroke-width="1.5"/>
+<rect x="801" y="463" width="4" height="25" rx="2" fill="#ee0000"/>
+<text x="820" y="507.0" font-size="22" fill="#151515" font-weight="650" text-anchor="start" class="node-title">Fortune Cookie app</text>
+<text x="820" y="544.0" font-size="18" fill="#52606d" font-weight="400" text-anchor="start" class="node-body">Go application on ROSA</text>
+</g>
+<path data-role="connector" data-source="git" data-target="build" data-points="[[320, 517.5], [430, 517.5]]" d="M 320,517.5 L 430,517.5" fill="none" stroke="#687683" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<g data-role="edge-label">
+<rect x="344.25" y="485.5" width="61.5" height="26" rx="5" fill="white" stroke="white" stroke-width="1.5"/>
+<text x="375.0" y="504.5" font-size="17" fill="#687683" font-weight="400" text-anchor="middle" class="">clone</text>
+</g>
+<path data-role="connector" data-source="build" data-target="app" data-points="[[690, 517.5], [800, 517.5]]" d="M 690,517.5 L 800,517.5" fill="none" stroke="#687683" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<g data-role="edge-label">
+<rect x="714.25" y="485.5" width="61.5" height="26" rx="5" fill="white" stroke="white" stroke-width="1.5"/>
+<text x="745.0" y="504.5" font-size="17" fill="#687683" font-weight="400" text-anchor="middle" class="">image</text>
+</g>
+<path data-role="connector" data-source="git" data-target="app" data-points="[[190.0, 590], [190, 690], [930, 690], [930.0, 590]]" d="M 190.0,590 L 190,690 L 930,690 L 930.0,590" fill="none" stroke="#0066cc" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="6 5"/>
+<g data-role="edge-label">
+<rect x="385.70000000000005" y="706" width="348.59999999999997" height="26" rx="5" fill="white" stroke="white" stroke-width="1.5"/>
+<text x="560" y="725" font-size="17" fill="#0066cc" font-weight="400" text-anchor="middle" class="">Argo CD reconciles committed manifests</text>
+</g>
+<path d="M 40,794 H 1080" stroke="#d5dbe1"/>
+<text x="40" y="825" font-size="16" fill="#52606d" font-weight="400" text-anchor="start" class="">The LLM writes the app. Fortune Cookie serves local strings; it makes no runtime model calls.</text>
+</svg>

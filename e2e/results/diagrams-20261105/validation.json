@@ -1,0 +1,85 @@
+{
+  "platform": "rosa",
+  "svg_diagrams": 4,
+  "reproducible": true,
+  "network_or_image_library_required": false,
+  "geometry": [
+    {
+      "platform": "rosa",
+      "name": "architecture-overview.svg",
+      "nodes": 6,
+      "issues": [],
+      "title": "AI-powered development on ROSA"
+    },
+    {
+      "platform": "rosa",
+      "name": "cicd-gitops.svg",
+      "nodes": 7,
+      "issues": [],
+      "title": "From prompt to a running application"
+    },
+    {
+      "platform": "rosa",
+      "name": "model-serving-architecture.svg",
+      "nodes": 4,
+      "issues": [],
+      "title": "Qwen3.8 as Models-as-a-Service"
+    },
+    {
+      "platform": "rosa",
+      "name": "the-bill-observability.svg",
+      "nodes": 5,
+      "issues": [],
+      "title": "Observe usage and explain behavior"
+    }
+  ],
+  "built_pages": [
+    {
+      "platform": "rosa",
+      "page": "index.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "200-platform/lab_3_openshift_ai_overview.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "200-platform/lab_5_agents_md.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "300-developer/lab_3_opencode_dev.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    },
+    {
+      "platform": "rosa",
+      "page": "400-observability/lab_1_llm_metrics.html",
+      "diagrams": 1,
+      "loaded": true,
+      "full_size_links": true
+    }
+  ],
+  "desktop_mobile": true,
+  "full_size_links": true,
+  "browser_args": [
+    "--use-mock-keychain"
+  ],
+  "documentation_build": "make docs passed",
+  "diagram_sha256": {
+    "architecture-overview.svg": "3de9c6c7625dce437e56dfa9ee74fe3b901df0f7833943ed5ec59c3fdfb5ea26",
+    "cicd-gitops.svg": "acce7511f4290c5bee35599520d262f14c4715cac889fad40969088fb4b4d3cc",
+    "model-serving-architecture.svg": "48c54d5e8989ef119c052643c727ad1c9b09f765abb901cbbebfa790dae8f309",
+    "the-bill-observability.svg": "757eb887c6b056acfe34b197391925b17e94660416363153369f7caa182bc56f"
+  }
+}
