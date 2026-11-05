@@ -13,7 +13,7 @@ Operators are still installing. Understand *why* Models-as-a-Service, wait until
 
 OpenShift AI 3.5 serves the model as an `LLMInferenceService`. Models-as-a-Service sits in front: Gateway, API keys, token quota. In this lab, you apply the serving manifests with `oc`; the developer’s application is delivered through GitOps in Act 2. The dashboard is the UI for catalog, subscriptions, and extra keys.
 
-image::model-serving-architecture.png[Qwen3.8 as Models-as-a-Service, align="center"]
+image::model-serving-architecture.svg["Qwen3.8 as Models-as-a-Service",align="center",link=self]
 
 OpenCode uses the OpenAI-compatible chat-completions API. The gateway authenticates one Bearer API key. This workshop uses the OpenShift 4.22 Gateway API implementation; do not install a separate Service Mesh stack for these instructions.
 

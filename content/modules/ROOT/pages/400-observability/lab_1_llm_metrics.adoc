@@ -11,7 +11,7 @@ OpenCode requests and model loading create GPU activity. Fortune Cookie serves l
 *Access:* OpenShift Web Console
 ====
 
-image::the-bill-observability.png[The bill — GPU and tokens, align="center"]
+image::the-bill-observability.svg["The bill — GPU and tokens",align="center",link=self]
 
 Stay in the *Administrator* perspective of the OpenShift Web Console. Every graph in this lab is there. The OpenShift AI dashboard is only for the token quota, not for GPU charts.
 
